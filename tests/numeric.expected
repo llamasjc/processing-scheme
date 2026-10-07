@@ -1,0 +1,17 @@
+def q():
+    return [_quot(-7, 2), _rem(-7, 2), (-7 % 2)]
+
+def r():
+    return [round(2.5), int(-2.7), _math.floor(-2.7), int(_math.floor(2.7)), float(1)]
+
+def e():
+    return [(2 ** 10), (2.0 ** 0.5), abs(-3), (4 % 2 == 0), exact_p(1), inexact_p(1.0)]
+
+def eqs():
+    return [_eqv("a", "a"), _eqv(1.0, 1.0), ([1, 2] == [1, 2]), (1 == 1.0)]
+
+def lists():
+    return [next((_p for _p in [[1, "a"], [2, "b"]] if _p[0] == 2), False), _member(3, [1, 2]), ([1, 2, 3])[1:]]
+
+
+run()

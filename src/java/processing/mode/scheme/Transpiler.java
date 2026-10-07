@@ -15,6 +15,7 @@ import java.util.*;
  *   - Full API in mewnala/__init__.pyi
  */
 public class Transpiler {
+    private final java.util.Set<SExpr> tailLets = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
     // mewnala functions: scheme-name → python_name (simple snake_case mapping)
     private static final Set<String> MEWNALA_FNS = Set.of(
@@ -170,11 +171,11 @@ public class Transpiler {
         emit("def text_ascent(*args): return 0  # not yet in mewnala\n");
         emit("def text_descent(*args): return 0  # not yet in mewnala\n\n");
         emit("# Scheme list primitives\n");
-        emit("def car(p): return p[0]\n");
-        emit("def cdr(p): return p[1] if (isinstance(p, tuple) and len(p)==2 and callable(p[1])) else list(p[1:])\n");
-        emit("def cons(h, t): return (h, t) if callable(t) or not isinstance(t, (list, tuple)) else [h] + list(t)\n");
+        emit("class _Pair:\n    __slots__ = ('car', 'cdr')\n    def __init__(s, a, d): s.car = a; s.cdr = d\n    def __getitem__(s, i): return (s.car, s.cdr)[i]\n    def __repr__(s): return f'({s.car!r} . {s.cdr!r})'\ndef car(p): return p[0]\n");
+        emit("def cdr(p): return p.cdr if isinstance(p, _Pair) else list(p[1:])\n");
+        emit("def cons(h, t): return [h] + list(t) if isinstance(t, (list, tuple)) else _Pair(h, t)\n");
         emit("def is_null(p): return p is None or p == [] or p == () or (isinstance(p, (list,tuple)) and len(p)==0)\n");
-        emit("def is_pair(p): return isinstance(p, (list, tuple)) and len(p) > 0\n");
+        emit("def is_pair(p): return isinstance(p, _Pair) or (isinstance(p, (list, tuple)) and len(p) > 0)\n");
         emit("def is_list(p): return isinstance(p, (list, tuple))\n");
         emit("def append(*args): return [x for lst in args for x in (lst if isinstance(lst, (list,tuple)) else [lst])]\n");
         emit("def cadr(p): return p[1]\n");
@@ -194,9 +195,29 @@ public class Transpiler {
         emit("def string_ref(s, i): return s[i]\n");
         emit("def substring(s, a, b): return s[a:b]\n");
         emit("def string_append(*args): return ''.join(args)\n");
-        emit("def number_to_string(n): return str(n)\n");
-        emit("def string_to_number(s): return float(s)\n\n");
+        emit("def number_to_string(n, radix=10): return str(n) if radix == 10 else format(n, {2:'b', 8:'o', 16:'x'}[radix])\n");
+        emit("def string_to_number(s, radix=10):\n"
+             + "    try: return int(s, radix)\n"
+             + "    except (ValueError, TypeError): pass\n"
+             + "    if radix == 10:\n"
+             + "        try: return float(s)\n"
+             + "        except ValueError: pass\n"
+             + "    return False\n\n");
+        emit("def _quot(a, b):\n"
+             + "    q = abs(a) // abs(b)\n"
+             + "    return q if (a < 0) == (b < 0) else -q\n"
+             + "def _rem(a, b): return a - b * _quot(a, b)\n"
+             + "def _eqv(a, b):\n"
+             + "    if a is b: return True\n"
+             + "    if type(a) is not type(b): return False\n"
+             + "    if isinstance(a, (str, int, float, bool)): return a == b\n"
+             + "    return isinstance(a, list) and not a and not b\n"
+             + "def _member(x, lst, test=lambda a, b: a == b):\n"
+             + "    for i, y in enumerate(lst):\n"
+             + "        if test(x, y): return lst[i:]\n"
+             + "    return False\n\n");
 
+        emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
             emitTopLevel(f);
@@ -297,7 +318,15 @@ public class Transpiler {
         SExpr last = body.get(body.size() - 1);
         marker(last.line(), ind);
         boolean isNamedLet = last.isForm("let") && last instanceof SExpr.Pair lp && lp.toList().size() > 1 && lp.toList().get(1) instanceof SExpr.Sym;
+        if (isNamedLet && !noReturn) tailLets.add(last);
         boolean hasNamedLetBranch = last.isForm("if") && containsNamedLet(last);
+        if (hasNamedLetBranch && !noReturn) {
+            List<SExpr> f = ((SExpr.Pair) last).toList();
+            indent(ind); emit("if "); emitExpr(f.get(1), ind); emit(":\n");
+            emitBody(List.of(f.get(2)), ind+1, false);
+            if (f.size() > 3) { indent(ind); emit("else:\n"); emitBody(List.of(f.get(3)), ind+1, false); }
+            return;
+        }
         if (!noReturn && !last.isForm("guard") && !hasNamedLetBranch && !isNamedLet && (isSimple(last) || last.isForm("if") || last.isForm("cond") ||
             last.isForm("let") || last.isForm("let*") || last.isForm("letrec") ||
             last.isForm("and") || last.isForm("or") || last.isForm("begin"))) {
@@ -543,6 +572,7 @@ public class Transpiler {
     }
 
     private void emitLet(SExpr e, int ind) throws SchemeException {
+        boolean tailPos = tailLets.remove(e);
         List<SExpr> parts = list(e);
         SExpr second = parts.get(1);
         // Named let
@@ -571,7 +601,7 @@ public class Transpiler {
             }
             emitBody(body, ind+1);
             inFunction = wi; localVars.clear(); localVars.addAll(wl);
-            indent(ind); emit("return " + loopName + "("); emitArgs(inits, ind); emit(")\n");
+            indent(ind); emit((tailPos ? "return " : "") + loopName + "("); emitArgs(inits, ind); emit(")\n");
             return;
         }
         // Regular let
@@ -718,8 +748,7 @@ public class Transpiler {
             case "void"       -> { emit("None"); return; }
             case "display"    -> { emit("print("); emitExpr(args.get(0),ind); emit(", end='')"); return; }
             case "newline"    -> { emit("print()"); return; }
-            case "number->string","symbol->string" -> { emit("str("); emitExpr(args.get(0),ind); emit(")"); return; }
-            case "string->number" -> { emit("float("); emitExpr(args.get(0),ind); emit(")"); return; }
+            case "symbol->string" -> { emit("str("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "exact->inexact","inexact" -> { emit("float("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "inexact->exact","exact","floor->exact","truncate->exact" -> { emit("int("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "char->integer" -> { emit("ord("); emitExpr(args.get(0),ind); emit(")"); return; }
@@ -788,8 +817,8 @@ public class Transpiler {
         if (items.isEmpty()) { emit("None"); return; }
         if (items.size() == 1) { emitExpr(items.get(0), ind); return; }
         emit("(");
-        for (int i = 0; i < items.size(); i++) { if (i>0) emit(" or "); emitExpr(items.get(i), ind); }
-        emit(")");
+        for (int i = 0; i < items.size(); i++) { if (i>0) emit(", "); emitExpr(items.get(i), ind); }
+        emit(")[-1]");
     }
 
     private void emitLetExpr(SExpr.Pair form, int ind) throws SchemeException {
@@ -854,8 +883,8 @@ public class Transpiler {
     }
 
     private void emitSetExpr(SExpr.Pair form, int ind) throws SchemeException {
-        // set! in expression position — just return the value
-        emit("("); emitExpr(nth(form, 2), ind); emit(")");
+        List<SExpr> p = list(form);
+        emit("("); emitExpr(p.get(1), ind); emit(" := "); emitExpr(p.get(2), ind); emit(")");
     }
 
     private void emitApply(List<SExpr> args, int ind) throws SchemeException {
@@ -886,8 +915,10 @@ public class Transpiler {
             case "-" -> { if(args.size()==1){sb.append("(-");apE(sb,args.get(0),ind);sb.append(")");} else {sb.append("(");apE(sb,args.get(0),ind);for(int i=1;i<args.size();i++){sb.append(" - ");apE(sb,args.get(i),ind);}sb.append(")");} return sb.toString(); }
             case "*" -> { sb.append("("); apE(sb,args.get(0),ind); for(int i=1;i<args.size();i++){sb.append(" * ");apE(sb,args.get(i),ind);} sb.append(")"); return sb.toString(); }
             case "/" -> { if(args.size()==1){sb.append("(1/");apE(sb,args.get(0),ind);sb.append(")");} else {sb.append("(");apE(sb,args.get(0),ind);for(int i=1;i<args.size();i++){sb.append(" / ");apE(sb,args.get(i),ind);}sb.append(")");} return sb.toString(); }
-            case "quotient","floor-quotient" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" // "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
-            case "remainder","modulo","floor-remainder" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" % "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
+            case "quotient","truncate-quotient" -> { sb.append("_quot("); apE(sb,args.get(0),ind); sb.append(", "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
+            case "floor-quotient" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" // "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
+            case "remainder","truncate-remainder" -> { sb.append("_rem("); apE(sb,args.get(0),ind); sb.append(", "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
+            case "modulo","floor-remainder" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" % "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
             case "expt"   -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" ** "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
             case "abs"    -> { sb.append("abs("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "max"    -> { sb.append("max("); apAll(sb,args,ind); sb.append(")"); return sb.toString(); }
@@ -925,8 +956,9 @@ public class Transpiler {
             case ">"  -> { return chain(args, " > ",  ind); }
             case "<=" -> { return chain(args, " <= ", ind); }
             case ">=" -> { return chain(args, " >= ", ind); }
-            case "equal?","eqv?" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" == "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
-            case "eq?"           -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" is "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
+            case "equal?" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" == "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
+            case "eqv?" -> { sb.append("_eqv("); apE(sb,args.get(0),ind); sb.append(", "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
+            case "eq?" -> { sb.append("_eqv("); apE(sb,args.get(0),ind); sb.append(", "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
             case "zero?"    -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" == 0)"); return sb.toString(); }
             case "positive?"-> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" > 0)"); return sb.toString(); }
             case "negative?"-> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" < 0)"); return sb.toString(); }
@@ -958,7 +990,7 @@ public class Transpiler {
         StringBuilder sb = new StringBuilder();
         switch (n) {
             case "car","first"   -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[0]"); return sb.toString(); }
-            case "cdr","rest"    -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[1:]"); return sb.toString(); }
+            case "cdr","rest"    -> { sb.append("cdr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "cadr","second" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[1]"); return sb.toString(); }
             case "caddr","third" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[2]"); return sb.toString(); }
             case "cadddr","fourth" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[3]"); return sb.toString(); }
@@ -976,7 +1008,8 @@ public class Transpiler {
             case "reverse" -> { sb.append("list(reversed("); apE(sb,args.get(0),ind); sb.append("))"); return sb.toString(); }
             case "list-copy" -> { sb.append("list("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "assoc","assq","assv" -> { sb.append("next((_p for _p in "); apE(sb,args.get(1),ind); sb.append(" if _p[0] == "); apE(sb,args.get(0),ind); sb.append("), False)"); return sb.toString(); }
-            case "member","memq","memv" -> { sb.append("([_i for _i in "); apE(sb,args.get(1),ind); sb.append(" if _i == "); apE(sb,args.get(0),ind); sb.append("] or False)"); return sb.toString(); }
+            case "member" -> { sb.append("_member("); apE(sb,args.get(0),ind); sb.append(", "); apE(sb,args.get(1),ind); if (args.size() > 2) { sb.append(", "); apE(sb,args.get(2),ind); } sb.append(")"); return sb.toString(); }
+            case "memq","memv" -> { sb.append("_member("); apE(sb,args.get(0),ind); sb.append(", "); apE(sb,args.get(1),ind); sb.append(", _eqv)"); return sb.toString(); }
             case "sort","list-sort" -> { sb.append("sorted("); apE(sb,args.get(1),ind); sb.append(", key="); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
         }
         return null;
@@ -984,7 +1017,23 @@ public class Transpiler {
 
     // ── Quote / quasiquote ────────────────────────────────────────────────────
 
+        private static boolean isImproper(SExpr e) {
+        while (e instanceof SExpr.Pair p) e = p.cdr();
+        return !(e instanceof SExpr.Nil);
+    }
+
+    /** (a b . c) becomes ("a", ("b", "c")), the same shape cons builds at runtime. */
+    private void emitQuotedImproper(SExpr.Pair p) throws SchemeException {
+        emit("_Pair(");
+        emitQuote(p.car());
+        emit(", ");
+        if (p.cdr() instanceof SExpr.Pair next) emitQuotedImproper(next);
+        else emitQuote(p.cdr());
+        emit(")");
+    }
+
     private void emitQuote(SExpr d) throws SchemeException {
+        if (d instanceof SExpr.Pair && isImproper(d)) { emitQuotedImproper((SExpr.Pair) d); return; }
         if (d instanceof SExpr.Nil)     emit("[]");
         else if (d instanceof SExpr.Bool b)  emit(b.value() ? "True" : "False");
         else if (d instanceof SExpr.Num n)   emit(n.raw());

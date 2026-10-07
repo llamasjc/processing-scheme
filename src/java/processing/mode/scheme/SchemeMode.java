@@ -13,8 +13,8 @@ public class SchemeMode extends Mode {
 
     @Override public String   getTitle()            { return "Scheme"; }
     @Override public String   getDefaultExtension() { return "scm"; }
-    @Override public String[] getExtensions()       { return new String[]{"scm","sch","pde"}; }
-    @Override public String[] getIgnorable()        { return new String[]{"scm~","pde~","build","__pycache__"}; }
+    @Override public String[] getExtensions()       { return new String[]{"scm","sch"}; }
+    @Override public String[] getIgnorable()        { return new String[]{"scm~","build","__pycache__"}; }
 
     @Override
     public File[] getExampleCategoryFolders() {
@@ -47,7 +47,6 @@ public class SchemeMode extends Mode {
 
     @Override
     protected processing.app.syntax.TokenMarker createTokenMarker() {
-        try { java.nio.file.Files.write(java.nio.file.Paths.get(System.getProperty("user.home"), "scheme-debug.txt"), ("createTokenMarker called\n" + "\n").getBytes(), java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND); } catch(Exception _dbge){}
         return new TsSchemeTokenMarker();
     }
 

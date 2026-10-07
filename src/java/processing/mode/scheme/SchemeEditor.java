@@ -10,6 +10,7 @@ import processing.app.syntax.*;
 import processing.app.ui.*;
 
 public class SchemeEditor extends Editor {
+    private TsSchemeTokenMarker tsMarker;
 
     private SchemeRunner currentRunner;
     private SchemeLinter  linter;
@@ -17,6 +18,11 @@ public class SchemeEditor extends Editor {
     public SchemeEditor(Base base, String path,
                         EditorState state, Mode mode) throws EditorException {
         super(base, path, state, mode);
+        // ── Tree-sitter syntax highlighting
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            getTextArea().addCaretListener(e -> refreshHighlights());
+            refreshHighlights();
+        });
     }
 
     // ── Text area with PdeTextArea for line numbers + gutter ─────────────────
@@ -204,7 +210,7 @@ public class SchemeEditor extends Editor {
             @Override public void stopIndeterminate()      { }
         };
     }
-    // ── Error overlay (draws directly on painter, no debugger required) ────
+        // ── Error overlay (draws directly on painter, no debugger required) ────
     private ErrorOverlay errorOverlay;
 
     private class ErrorOverlay extends javax.swing.JPanel {
@@ -231,4 +237,15 @@ public class SchemeEditor extends Editor {
         }
     }
 
+
+    /** Point the current document's marker at that document and rebuild. Covers typing and tab switches. */
+    private void refreshHighlights() {
+        // Processing 4.5 shares one TokenMarker per mode; documents only hold per-line state.
+        // So the marker always reads whichever tab the text area is showing.
+        if (getMode().getTokenMarker() instanceof TsSchemeTokenMarker m) {
+            m.setSource(() -> getTextArea().getText());
+            m.setOnUpdate(() -> getTextArea().getPainter().repaint());
+            m.invalidate();
+        }
+    }
 }
