@@ -1,0 +1,19 @@
+def l1():
+    a = 1
+    _print(a)
+    return _print(2)
+
+def l2(x):
+    y = (x * 2)
+    return (y + 1)
+
+def l3():
+    a = 1
+    b = (a + 1)
+    return [a, b]
+
+def l4(x):
+    return ((lambda y: (y * 10))(x) if ((x > 0)) else 0)
+
+
+run()

@@ -15,6 +15,8 @@ import java.util.*;
  *   - Full API in mewnala/__init__.pyi
  */
 public class Transpiler {
+    private final java.util.Map<SExpr, String> hoisted = new java.util.IdentityHashMap<>();
+    private int lamN = 0;
     private final java.util.Set<SExpr> tailLets = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
     // mewnala functions: scheme-name → python_name (simple snake_case mapping)
@@ -217,6 +219,31 @@ public class Transpiler {
              + "        if test(x, y): return lst[i:]\n"
              + "    return False\n\n");
 
+        emit("def string_to_symbol(s): return s\n"
+             + "def boolean_eq__p(a, *r): return all(x is a for x in r)\n"
+             + "def vector_fill(v, x, start=0, end=None):\n"
+             + "    for i in range(start, len(v) if end is None else end): v[i] = x\n\n");
+        emit("def _for_each(f, *ls):\n"
+             + "    for a in zip(*ls): f(*a)\n"
+             + "def string_index(s, c):\n"
+             + "    i = s.find(c)\n"
+             + "    return i if i >= 0 else False\n"
+             + "def vector_to_list(v, start=0, end=None): return list(v[start:end])\n"
+             + "def list_to_vector(l): return list(l)\n\n");
+        emit("def _show(x, w=False):\n"
+             + "    if x is True: return '#t'\n"
+             + "    if x is False: return '#f'\n"
+             + "    if isinstance(x, str):\n"
+             + "        return '\"' + x.replace('\\\\', '\\\\\\\\').replace('\"', '\\\\\"') + '\"' if w else x\n"
+             + "    if isinstance(x, (list, _Pair)):\n"
+             + "        items = []\n"
+             + "        while isinstance(x, _Pair): items.append(_show(x.car, w)); x = x.cdr\n"
+             + "        if isinstance(x, list): return '(' + ' '.join(items + [_show(y, w) for y in x]) + ')'\n"
+             + "        return '(' + ' '.join(items) + ' . ' + _show(x, w) + ')'\n"
+             + "    return str(x)\n"
+             + "def _display(x, port=None): print(_show(x), end='')\n"
+             + "def write(x, port=None): print(_show(x, True), end='')\n"
+             + "def _print(*a): print(*(_show(x) for x in a), end='')\n\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
@@ -319,6 +346,8 @@ public class Transpiler {
         marker(last.line(), ind);
         boolean isNamedLet = last.isForm("let") && last instanceof SExpr.Pair lp && lp.toList().size() > 1 && lp.toList().get(1) instanceof SExpr.Sym;
         if (isNamedLet && !noReturn) tailLets.add(last);
+        boolean isPlainLet = !isNamedLet && (last.isForm("let") || last.isForm("let*") || last.isForm("letrec") || last.isForm("letrec*"));
+        if (isPlainLet && !noReturn) { tailLets.add(last); emitStmt(last, ind); return; }
         boolean hasNamedLetBranch = last.isForm("if") && containsNamedLet(last);
         if (hasNamedLetBranch && !noReturn) {
             List<SExpr> f = ((SExpr.Pair) last).toList();
@@ -330,6 +359,7 @@ public class Transpiler {
         if (!noReturn && !last.isForm("guard") && !hasNamedLetBranch && !isNamedLet && (isSimple(last) || last.isForm("if") || last.isForm("cond") ||
             last.isForm("let") || last.isForm("let*") || last.isForm("letrec") ||
             last.isForm("and") || last.isForm("or") || last.isForm("begin"))) {
+            hoistLambdas(last, ind);
             indent(ind); emit("return "); emitExpr(last, ind); emit("\n");
         } else {
             emitStmt(last, ind);
@@ -373,6 +403,7 @@ public class Transpiler {
     // ── Statements ────────────────────────────────────────────────────────────
 
     private void emitStmt(SExpr e, int ind) throws SchemeException {
+        hoistLambdas(e, ind);
         if (e instanceof SExpr.Nil) { indent(ind); emit("pass\n"); return; }
         if (e.isForm("define"))           { emitDefine(e, ind); return; }
         if (e.isForm("define-record-type")){ emitRecordType(e); return; }
@@ -389,9 +420,9 @@ public class Transpiler {
         if (e.isForm("do"))               { emitDo(e, ind); return; }
         if (e.isForm("for-each"))         { emitForEach(e, ind); return; }
         if (e.isForm("with-matrix"))      { emitWithMatrix(e, ind); return; }
-        if (e.isForm("display"))          { indent(ind); emit("print("); emitExpr(nth(e,1), ind); emit(", end='')\n"); return; }
+        if (e.isForm("display"))          { indent(ind); emit("_display("); emitExpr(nth(e,1), ind); emit(")\n"); return; }
         if (e.isForm("newline"))          { indent(ind); emit("print()\n"); return; }
-        if (e.isForm("write"))            { indent(ind); emit("print(repr("); emitExpr(nth(e,1),ind); emit("), end='')\n"); return; }
+        if (e.isForm("write"))            { indent(ind); emit("write("); emitExpr(nth(e,1),ind); emit(")\n"); return; }
         if (e.isForm("define-syntax") || e.isForm("let-syntax")) { indent(ind); emit("pass  # syntax\n"); return; }
         indent(ind); emitExpr(e, ind); emit("\n");
     }
@@ -616,7 +647,7 @@ public class Transpiler {
             if (bl.size() > 1) emitExpr(bl.get(1), ind); else emit("None");
             emit("\n");
         }
-        emitBody(body, ind);
+        emitBody(body, ind, !tailPos);
     }
 
     private void emitDo(SExpr e, int ind) throws SchemeException {
@@ -737,16 +768,16 @@ public class Transpiler {
             case "when","unless" -> { emit("None"); return; }
             case "vector"     -> { emit("["); emitArgs(args, ind); emit("]"); return; }
             case "vector-ref" -> { emitExpr(args.get(0),ind); emit("["); emitExpr(args.get(1),ind); emit("]"); return; }
-            case "vector-set!" -> { emitExpr(args.get(0),ind); emit("["); emitExpr(args.get(1),ind); emit("] = "); emitExpr(args.get(2),ind); return; }
+            case "vector-set!" -> { emitExpr(args.get(0),ind); emit(".__setitem__("); emitExpr(args.get(1),ind); emit(", "); emitExpr(args.get(2),ind); emit(")"); return; }
             case "vector-length","string-length","length" -> { emit("len("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "apply"      -> { emitApply(args, ind); return; }
             case "map"        -> { emit("list(map("); emitExpr(args.get(0),ind); for (int i=1;i<args.size();i++){emit(", ");emitExpr(args.get(i),ind);} emit("))"); return; }
             case "filter"     -> { emit("list(filter("); emitExpr(args.get(0),ind); emit(", "); emitExpr(args.get(1),ind); emit("))"); return; }
-            case "for-each"   -> { emit("["); emitExpr(args.get(0),ind); emit("(_i) for _i in "); emitExpr(args.get(1),ind); emit("]"); return; }
+            case "for-each"   -> { emit("_for_each("); for (int k = 0; k < args.size(); k++) { if (k > 0) emit(", "); emitExpr(args.get(k),ind); } emit(")"); return; }
             case "fold-left","foldl" -> { emit("__import__('functools').reduce("); emitExpr(args.get(0),ind); emit(", "); emitExpr(args.get(2),ind); emit(", "); emitExpr(args.get(1),ind); emit(")"); return; }
             case "error"      -> { emit("_err("); emitArgs(args,ind); emit(")"); return; }
             case "void"       -> { emit("None"); return; }
-            case "display"    -> { emit("print("); emitExpr(args.get(0),ind); emit(", end='')"); return; }
+            case "display"    -> { emit("_display("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "newline"    -> { emit("print()"); return; }
             case "symbol->string" -> { emit("str("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "exact->inexact","inexact" -> { emit("float("); emitExpr(args.get(0),ind); emit(")"); return; }
@@ -792,6 +823,8 @@ public class Transpiler {
     }
 
     private void emitLambda(SExpr.Pair form, int ind) throws SchemeException {
+        String hz = hoisted.get(form);
+        if (hz != null) { emit(hz); return; }
         List<SExpr> parts = list(form);
         SExpr paramForm = parts.get(1);
         List<SExpr> body = parts.subList(2, parts.size());
@@ -806,10 +839,64 @@ public class Transpiler {
         if (body.size() == 1 && isSimple(body.get(0))) {
             emit("(lambda " + ps + ": "); emitExpr(body.get(0), ind); emit(")");
         } else {
-            // multi-body: emit as immediately invoked nested def
-            // For now emit lambda returning last expr (limitation)
-            emit("(lambda " + ps + ": ("); emitExpr(body.get(body.size()-1), ind); emit("))");
+            // Every body form runs in order; the lambda returns the last one's value.
+            emit("(lambda " + ps + ": ");
+            if (body.size() == 1) emitExpr(body.get(0), ind);
+            else {
+                emit("(");
+                for (int i = 0; i < body.size(); i++) { if (i > 0) emit(", "); emitExpr(body.get(i), ind); }
+                emit(")[-1]");
+            }
+            emit(")");
         }
+    }
+
+
+    // Lambdas that set! an outer variable can't be Python lambdas: a walrus would bind a
+    // lambda-local. Emit each as a def (with nonlocal/global) just above the statement using it.
+    private void hoistLambdas(SExpr e, int ind) throws SchemeException {
+        if (!(e instanceof SExpr.Pair)) return;
+        if (e.isForm("quote") || e.isForm("quasiquote") || e.isForm("define")) return;
+        if (e.isForm("let") && list(e).size() > 1 && list(e).get(1) instanceof SExpr.Sym) return;
+        if (e.isForm("lambda")) { hoistLambda((SExpr.Pair) e, ind); return; }
+        SExpr cur = e;
+        while (cur instanceof SExpr.Pair c) { hoistLambdas(c.car(), ind); cur = c.cdr(); }
+    }
+
+    private void hoistLambda(SExpr.Pair form, int ind) throws SchemeException {
+        if (hoisted.containsKey(form)) return;
+        List<SExpr> parts = list(form);
+        if (parts.size() < 3) return;
+        List<SExpr> body = parts.subList(2, parts.size());
+        List<String> params = new ArrayList<>();
+        String restP = null;
+        SExpr pf = parts.get(1);
+        while (pf instanceof SExpr.Pair pp) { if (pp.car() instanceof SExpr.Sym ps) params.add(snake(ps.name())); pf = pp.cdr(); }
+        if (pf instanceof SExpr.Sym rs) restP = snake(rs.name());
+        List<String> own = new ArrayList<>(params);
+        if (restP != null) own.add(restP);
+        List<String> outerLocal = new ArrayList<>(), outerGlobal = new ArrayList<>();
+        for (String t : findSetTargets(body)) {
+            if (own.contains(t)) continue;
+            if (globalVars.contains(t)) outerGlobal.add(t);
+            else if (inFunction && localVars.contains(t)) outerLocal.add(t);
+            else return; // not reachable from a def here; leave the lambda as it is
+        }
+        if (outerLocal.isEmpty() && outerGlobal.isEmpty()) return;
+        String name = "_lam" + (++lamN);
+        hoisted.put(form, name);
+        indent(ind);
+        emit("def " + name + "(" + String.join(", ", params)
+             + (restP != null ? (params.isEmpty() ? "" : ", ") + "*" + restP : "") + "):\n");
+        if (!outerLocal.isEmpty())  { indent(ind+1); emit("nonlocal " + String.join(", ", outerLocal) + "\n"); }
+        if (!outerGlobal.isEmpty()) { indent(ind+1); emit("global " + String.join(", ", outerGlobal) + "\n"); }
+        boolean wi = inFunction;
+        Set<String> wl = new LinkedHashSet<>(localVars);
+        inFunction = true;
+        localVars.clear(); localVars.addAll(own); localVars.addAll(outerLocal); localVars.addAll(outerGlobal);
+        emitBody(body, ind+1);
+        inFunction = wi;
+        localVars.clear(); localVars.addAll(wl);
     }
 
     private void emitBeginExpr(SExpr.Pair form, int ind) throws SchemeException {
@@ -1181,7 +1268,7 @@ public class Transpiler {
             name = camelToKebab(name);
         }
         return switch (name) {
-            case "display" -> "print"; case "length" -> "len";
+            case "display" -> "_display"; case "length" -> "len";
             case "+" -> "_add"; case "-" -> "_sub"; case "*" -> "_mul";
             case "/" -> "_div"; case "%" -> "_mod";
             case "<" -> "_lt"; case ">" -> "_gt"; case "<=" -> "_le"; case ">=" -> "_ge";

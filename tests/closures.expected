@@ -1,0 +1,32 @@
+total = 0
+
+def g1():
+    global total
+    def _lam1(x):
+        global total
+        total = (total + x)
+    for _fi in [1, 2, 3]:
+        _lam1(_fi)
+    return total
+
+def g2():
+    n = 0
+    def _lam2(x):
+        nonlocal n
+        n = (n + 1)
+        return _print(x)
+    for _fi in [7, 8]:
+        _lam2(_fi)
+    return n
+
+def g3():
+    acc = []
+    def _lam3(a, b):
+        nonlocal acc
+        acc = cons((a + b), acc)
+    for _fi in zip([1, 2], [10, 20]):
+        _lam3(*_fi)
+    return acc
+
+
+run()
