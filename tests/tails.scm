@@ -27,3 +27,7 @@
 ;; py: tl16() == [3, 4] and tl17() == 3 and tl18() == [2]
 ;; py: err_of(lambda: tl19()) == 'cdr: expected a pair, got ()'
 ;; py: err_of(lambda: tl20()) == 'string-ref: index 5 out of range for a string of length 3'
+(define (tl21) (cadddr (list 1 2 3 4)))
+(define (tl22) (fourth (list 1 2)))
+;; py: tl21() == 4
+;; py: err_of(lambda: tl22()) == 'cdr: expected a pair, got ()'

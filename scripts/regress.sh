@@ -19,7 +19,7 @@ JAVA
 fi
 fail=0
 for t in tests/*.scm; do
-  full=$(java -cp "$TXD:$CP" Tx < "$t" 2>&1)
+  full=$(java -cp "$TXD:$CP" Tx < "$t" 2>&1 | grep -v '^NOTE: Picked up JDK_JAVA_OPTIONS')
   printf '%s\n' "$full" > /tmp/regress_full.py
   out=$(printf '%s\n' "$full" | grep -v '# scm' | sed '1,/^# -- sketch --$/d')
   exp="${t%.scm}.expected"

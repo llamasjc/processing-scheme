@@ -1382,7 +1382,7 @@ public class Transpiler {
             case "cdr","rest"    -> { sb.append("cdr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "cadr","second" -> { sb.append("cadr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "caddr","third" -> { sb.append("caddr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
-            case "cadddr","fourth" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[3]"); return sb.toString(); }
+            case "cadddr","fourth" -> { sb.append("cadddr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "cddr"   -> { sb.append("cddr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "list"   -> { sb.append("["); apAll(sb,args,ind); sb.append("]"); return sb.toString(); }
             case "list-ref" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")["); apE(sb,args.get(1),ind); sb.append("]"); return sb.toString(); }

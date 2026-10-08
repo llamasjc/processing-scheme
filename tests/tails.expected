@@ -60,6 +60,12 @@ def tl19():
 def tl20():
     return string_ref("abc", 5)
 
+def tl21():
+    return cadddr([1, 2, 3, 4])
+
+def tl22():
+    return cadddr([1, 2])
+
 
 _scm_wrap(globals())
 run()
