@@ -10,7 +10,7 @@ with contextlib.redirect_stdout(out):
     exec(compile(src, py, "exec"), g)
 def _plain(x):
     if isinstance(x, str): return str.__str__(x)
-    if isinstance(x, list): return [_plain(y) for y in x]
+    if isinstance(x, list) or type(x).__name__ == "_Tail": return [_plain(y) for y in x]
     if type(x).__name__ == "_Pair": return (_plain(x.car), _plain(x.cdr))
     return x
 g["__plain"] = _plain

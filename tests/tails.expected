@@ -1,0 +1,50 @@
+def tl1():
+    return cdr([1, 2, 3])
+
+def tl2():
+    return len(cdr([1, 2, 3]))
+
+def tl3():
+    return list(reversed(cdr([1, 2, 3])))
+
+def tl4():
+    return (cdr([1, 2]) + cdr([3, 4]))
+
+def tl5():
+    return list(map((lambda x: (x * 10)), cdr([1, 2, 3])))
+
+def tl6():
+    return (cdr([1, 2, 3]) == [2, 3])
+
+def tl7():
+    return is_null(cdr([1]))
+
+def tl8():
+    return _eqv([], cdr([1]))
+
+def tl9():
+    return _add(*(cdr([1, 2, 3])))
+
+def tl10():
+    return cons(0, cdr([1, 2]))
+
+def tl11():
+    return (cdr([1, 2, 3, 4]))[1:]
+
+def tl12():
+    return is_pair(cdr([1, 2]))
+
+def tl13():
+    return cadr(cdr([1, 2, 3]))
+
+def tl14():
+    def loop(l, acc):
+        return (acc if is_null(l) else loop(cdr(l), (acc + car(l))))
+    return loop([1, 2, 3, 4], 0)
+
+def tl15():
+    return _member(3, cdr([1, 2, 3, 4]), _eqv)
+
+
+_scm_wrap(globals())
+run()

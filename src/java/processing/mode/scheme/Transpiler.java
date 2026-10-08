@@ -177,11 +177,11 @@ public class Transpiler {
         emit("# Scheme list primitives\n");
         emit("class _Pair:\n    __slots__ = ('car', 'cdr')\n    def __init__(s, a, d): s.car = a; s.cdr = d\n    def __getitem__(s, i): return (s.car, s.cdr)[i]\n    def __repr__(s): return f'({s.car!r} . {s.cdr!r})'\ndef car(p): return p[0]\n");
         emit("def cdr(p): return p.cdr if isinstance(p, _Pair) else list(p[1:])\n");
-        emit("def cons(h, t): return [h] + list(t) if isinstance(t, (list, tuple)) else _Pair(h, t)\n");
-        emit("def is_null(p): return p is None or p == [] or p == () or (isinstance(p, (list,tuple)) and len(p)==0)\n");
-        emit("def is_pair(p): return isinstance(p, _Pair) or (isinstance(p, (list, tuple)) and len(p) > 0)\n");
-        emit("def is_list(p): return isinstance(p, (list, tuple))\n");
-        emit("def append(*args): return [x for lst in args for x in (lst if isinstance(lst, (list,tuple)) else [lst])]\n");
+        emit("def cons(h, t): return [h] + list(t) if isinstance(t, _SEQ) else _Pair(h, t)\n");
+        emit("def is_null(p): return p is None or (isinstance(p, _SEQ) and len(p) == 0)\n");
+        emit("def is_pair(p): return isinstance(p, _Pair) or (isinstance(p, _SEQ) and len(p) > 0)\n");
+        emit("def is_list(p): return isinstance(p, _SEQ)\n");
+        emit("def append(*args): return [x for lst in args for x in (lst if isinstance(lst, _SEQ) else [lst])]\n");
         emit("def cadr(p): return p[1]\n");
         emit("def caddr(p): return p[2]\n");
         emit("def cadddr(p): return p[3]\n");
@@ -213,9 +213,10 @@ public class Transpiler {
              + "def _rem(a, b): return a - b * _quot(a, b)\n"
              + "def _eqv(a, b):\n"
              + "    if a is b: return True\n"
+             + "    if isinstance(a, _SEQ) and isinstance(b, _SEQ): return len(a) == 0 and len(b) == 0\n"
              + "    if type(a) is not type(b): return False\n"
              + "    if isinstance(a, (str, int, float, bool)): return a == b\n"
-             + "    return isinstance(a, list) and not a and not b\n"
+             + "    return False\n"
              + "def _member(x, lst, test=lambda a, b: a == b):\n"
              + "    for i, y in enumerate(lst):\n"
              + "        if test(x, y): return lst[i:]\n"
@@ -238,10 +239,10 @@ public class Transpiler {
              + "    if isinstance(x, _Sym): return str.__str__(x)\n"
              + "    if isinstance(x, str):\n"
              + "        return '\"' + x.replace('\\\\', '\\\\\\\\').replace('\"', '\\\\\"') + '\"' if w else x\n"
-             + "    if isinstance(x, (list, _Pair)):\n"
+             + "    if isinstance(x, _SEQ + (_Pair,)):\n"
              + "        items = []\n"
              + "        while isinstance(x, _Pair): items.append(_show(x.car, w)); x = x.cdr\n"
-             + "        if isinstance(x, list): return '(' + ' '.join(items + [_show(y, w) for y in x]) + ')'\n"
+             + "        if isinstance(x, _SEQ): return '(' + ' '.join(items + [_show(y, w) for y in x]) + ')'\n"
              + "        return '(' + ' '.join(items) + ' . ' + _show(x, w) + ')'\n"
              + "    return str(x)\n"
              + "def _display(x, port=None): print(_show(x), end='')\n"
@@ -314,21 +315,61 @@ public class Transpiler {
              + "def _bad(fn, want, got): raise _SchemeError(fn + ': expected ' + want + ', got ' + _show(got, True))\n"
              + "def car(p):\n"
              + "    if isinstance(p, _Pair): return p.car\n"
-             + "    if isinstance(p, (list, tuple)) and p: return p[0]\n"
+             + "    if isinstance(p, _SEQ) and len(p): return p[0]\n"
              + "    _bad('car', 'a pair', p)\n"
              + "def cdr(p):\n"
              + "    if isinstance(p, _Pair): return p.cdr\n"
-             + "    if isinstance(p, list) and p: return p[1:]\n"
-             + "    if isinstance(p, tuple) and p: return list(p[1:])\n"
+             + "    if isinstance(p, _SEQ) and len(p): return _tail(p, 1)\n"
+             + "    pass\n"
              + "    _bad('cdr', 'a pair', p)\n"
              + "def cadr(p):\n"
-             + "    if isinstance(p, (list, tuple)) and len(p) > 1: return p[1]\n"
+             + "    if isinstance(p, _SEQ) and len(p) > 1: return p[1]\n"
              + "    return car(cdr(p))\n"
              + "def vector_ref(v, i):\n"
-             + "    if not isinstance(v, (list, tuple)): _bad('vector-ref', 'a vector', v)\n"
+             + "    if not isinstance(v, _SEQ): _bad('vector-ref', 'a vector', v)\n"
              + "    if not (isinstance(i, int) and 0 <= i < len(v)):\n"
              + "        raise _SchemeError('vector-ref: index ' + _show(i) + ' out of range for a vector of length ' + str(len(v)))\n"
              + "    return v[i]\n"
+             + "\n");
+        emit("class _Tail:\n"
+             + "    # cdr of a list: shares the list, remembers a start offset. O(1) instead of a copy.\n"
+             + "    __slots__ = ('b', 's')\n"
+             + "    def __init__(t, b, s): t.b = b; t.s = s\n"
+             + "    def __len__(t): return len(t.b) - t.s\n"
+             + "    def __bool__(t): return len(t.b) > t.s\n"
+             + "    def __iter__(t):\n"
+             + "        b = t.b\n"
+             + "        for i in range(t.s, len(b)): yield b[i]\n"
+             + "    def __reversed__(t):\n"
+             + "        b = t.b\n"
+             + "        for i in range(len(b) - 1, t.s - 1, -1): yield b[i]\n"
+             + "    def __getitem__(t, i):\n"
+             + "        n = len(t.b) - t.s\n"
+             + "        if isinstance(i, slice):\n"
+             + "            a, e, st = i.indices(n)\n"
+             + "            if st == 1 and e == n: return _Tail(t.b, t.s + a)\n"
+             + "            return list(t)[i]\n"
+             + "        if i < 0: i += n\n"
+             + "        if not 0 <= i < n: raise IndexError('list index out of range')\n"
+             + "        return t.b[t.s + i]\n"
+             + "    def __setitem__(t, i, v):\n"
+             + "        n = len(t.b) - t.s\n"
+             + "        if i < 0: i += n\n"
+             + "        if not 0 <= i < n: raise IndexError('list assignment index out of range')\n"
+             + "        t.b[t.s + i] = v\n"
+             + "    def __eq__(t, o):\n"
+             + "        if isinstance(o, (list, tuple, _Tail)): return len(t) == len(o) and all(x == y for x, y in zip(t, o))\n"
+             + "        return NotImplemented\n"
+             + "    def __ne__(t, o):\n"
+             + "        r = t.__eq__(o)\n"
+             + "        return r if r is NotImplemented else not r\n"
+             + "    __hash__ = None\n"
+             + "    def __add__(t, o): return list(t) + list(o)\n"
+             + "    def __radd__(t, o): return list(o) + list(t)\n"
+             + "    def __contains__(t, x): return any(y == x for y in t)\n"
+             + "    def __repr__(t): return repr(list(t))\n"
+             + "_SEQ = (list, tuple, _Tail)\n"
+             + "def _tail(p, k): return _Tail(p.b, p.s + k) if isinstance(p, _Tail) else _Tail(p, k)\n"
              + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
@@ -1299,8 +1340,8 @@ public class Transpiler {
             case "even?"    -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" % 2 == 0)"); return sb.toString(); }
             case "odd?"     -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" % 2 != 0)"); return sb.toString(); }
             case "null?","nil?" -> { sb.append("is_null("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
-            case "pair?"    -> { sb.append("(isinstance("); apE(sb,args.get(0),ind); sb.append(", list) and len("); apE(sb,args.get(0),ind); sb.append(") > 0)"); return sb.toString(); }
-            case "list?"    -> { sb.append("isinstance("); apE(sb,args.get(0),ind); sb.append(", list)"); return sb.toString(); }
+            case "pair?"    -> { sb.append("is_pair("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
+            case "list?"    -> { sb.append("is_list("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "number?"  -> { sb.append("isinstance("); apE(sb,args.get(0),ind); sb.append(", (int, float))"); return sb.toString(); }
             case "string?"  -> { sb.append("string_p("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "boolean?" -> { sb.append("isinstance("); apE(sb,args.get(0),ind); sb.append(", bool)"); return sb.toString(); }

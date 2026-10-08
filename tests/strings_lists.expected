@@ -5,7 +5,7 @@ def t2():
     return [list(map(_add, [1, 2], [10, 20])), _max(*([3, 9, 2])), list(reversed([1, 2, 3])), ([1] + [2, 3] + []), len([1, 2]), list([1, 2])]
 
 def t3():
-    return [next((_p for _p in [[_Sym("a"), 1], [_Sym("b"), 2]] if _p[0] == _Sym("b")), False), next((_p for _p in [[1, _Sym("x")], [2, _Sym("y")]] if _p[0] == 2), False), is_null([]), (isinstance([], list) and len([]) > 0), isinstance([1], list), boolean_eq__p(True, True)]
+    return [next((_p for _p in [[_Sym("a"), 1], [_Sym("b"), 2]] if _p[0] == _Sym("b")), False), next((_p for _p in [[1, _Sym("x")], [2, _Sym("y")]] if _p[0] == 2), False), is_null([]), is_pair([]), is_list([1]), boolean_eq__p(True, True)]
 
 def t4():
     v_l1 = make_vector(3, 0)
