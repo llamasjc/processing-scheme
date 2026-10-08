@@ -8,19 +8,19 @@ def t3():
     return [next((_p for _p in [[_Sym("a"), 1], [_Sym("b"), 2]] if _p[0] == _Sym("b")), False), next((_p for _p in [[1, _Sym("x")], [2, _Sym("y")]] if _p[0] == 2), False), is_null([]), (isinstance([], list) and len([]) > 0), isinstance([1], list), boolean_eq__p(True, True)]
 
 def t4():
-    v = make_vector(3, 0)
-    v.__setitem__(0, 9)
-    vector_fill(v, 7)
-    return [v[1], len(v), vector_to_list(v)]
+    v_l1 = make_vector(3, 0)
+    v_l1.__setitem__(0, 9)
+    vector_fill(v_l1, 7)
+    return [v_l1[1], len(v_l1), vector_to_list(v_l1)]
 
 def t5():
-    acc = []
+    acc_l2 = []
     def _lam1(a, b):
-        nonlocal acc
-        acc = cons((a + b), acc)
+        nonlocal acc_l2
+        acc_l2 = cons((a + b), acc_l2)
     for _fi in zip([1, 2], [10, 20]):
         _lam1(*_fi)
-    return acc
+    return acc_l2
 
 
 run()

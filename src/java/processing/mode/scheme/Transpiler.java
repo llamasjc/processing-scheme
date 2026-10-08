@@ -18,6 +18,7 @@ public class Transpiler {
     private final java.util.Map<SExpr, String> hoisted = new java.util.IdentityHashMap<>();
     private int lamN = 0;
     private int condN = 0;
+    private int letN = 0;
     private final java.util.Set<SExpr> tailLets = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
     // mewnala functions: scheme-name → python_name (simple snake_case mapping)
@@ -684,18 +685,32 @@ public class Transpiler {
             indent(ind); emit((tailPos ? "return " : "") + loopName + "("); emitArgs(inits, ind); emit(")\n");
             return;
         }
-        // Regular let
+        // Regular let as statements. Statement lets share the function's Python scope, so each
+        // binding gets a fresh name; otherwise it would clobber (or make local) an outer variable.
         List<SExpr> bindings = list(second);
-        List<SExpr> body = parts.subList(2, parts.size());
-        for (SExpr b : bindings) {
-            List<SExpr> bl = list(b);
-            String varName = snakeBind(sym(bl.get(0)));
+        List<SExpr> body = new ArrayList<>(parts.subList(2, parts.size()));
+        boolean star = e.isForm("let*"), rec = e.isForm("letrec") || e.isForm("letrec*");
+        List<String> olds = new ArrayList<>(), news = new ArrayList<>();
+        for (SExpr b : bindings) { String n = sym(list(b).get(0)); olds.add(n); news.add(n + "__l" + (++letN)); }
+        java.util.Map<String, String> full = new java.util.HashMap<>();
+        for (int k = 0; k < olds.size(); k++) full.put(olds.get(k), news.get(k));
+        for (int i = 0; i < bindings.size(); i++) {
+            List<SExpr> bl = list(bindings.get(i));
+            SExpr init = bl.size() > 1 ? bl.get(1) : null;
+            if (init != null && (star || rec)) {
+                java.util.Map<String, String> seen = new java.util.HashMap<>();
+                int upto = rec ? bindings.size() : i;
+                for (int k = 0; k < upto; k++) seen.put(olds.get(k), news.get(k));
+                init = subst(init, seen);
+            }
+            String varName = snakeBind(news.get(i));
             localVars.add(varName);
-            marker(b.line(), ind); indent(ind);
+            marker(bindings.get(i).line(), ind); indent(ind);
             emit(varName + " = ");
-            if (bl.size() > 1) emitExpr(bl.get(1), ind); else emit("None");
+            if (init != null) emitExpr(init, ind); else emit("None");
             emit("\n");
         }
+        for (int j = 0; j < body.size(); j++) body.set(j, subst(body.get(j), full));
         emitBody(body, ind, !tailPos);
     }
 
@@ -965,6 +980,84 @@ public class Transpiler {
     private void emitTest(SExpr t, int ind) throws SchemeException {
         if (isBoolExpr(t)) { emitExpr(t, ind); return; }
         emit("(("); emitExpr(t, ind); emit(") is not False)");
+    }
+
+
+    private static SExpr chainOf(List<SExpr> xs, SExpr tail, int line) {
+        SExpr r = tail;
+        for (int i = xs.size() - 1; i >= 0; i--) r = new SExpr.Pair(xs.get(i), r, line);
+        return r;
+    }
+
+    private static java.util.Map<String, String> without(java.util.Map<String, String> m, java.util.Collection<String> names) {
+        boolean hit = false;
+        for (String n : names) if (m.containsKey(n)) { hit = true; break; }
+        if (!hit) return m;
+        java.util.Map<String, String> r = new java.util.HashMap<>(m);
+        r.keySet().removeAll(names);
+        return r;
+    }
+
+    private static java.util.Set<String> binderNames(SExpr params) {
+        java.util.Set<String> out = new java.util.HashSet<>();
+        while (params instanceof SExpr.Pair pp) { if (pp.car() instanceof SExpr.Sym s) out.add(s.name()); params = pp.cdr(); }
+        if (params instanceof SExpr.Sym s) out.add(s.name());
+        return out;
+    }
+
+    // Rename free occurrences of variables (all at once), leaving quoted data alone and
+    // stopping where an inner lambda/let/do rebinds the same name.
+    private SExpr subst(SExpr e, java.util.Map<String, String> m) {
+        if (m.isEmpty()) return e;
+        if (e instanceof SExpr.Sym s) { String t = m.get(s.name()); return t == null ? e : new SExpr.Sym(t, s.line()); }
+        if (!(e instanceof SExpr.Pair p)) return e;
+        if (e.isForm("quote")) return e;
+        if (e.isForm("quasiquote")) return substQQ(e, m);
+        if (e.isForm("lambda")) {
+            List<SExpr> ps = list(e);
+            if (ps.size() > 2) {
+                java.util.Map<String, String> in = without(m, binderNames(ps.get(1)));
+                List<SExpr> out = new ArrayList<>(ps.subList(0, 2));
+                for (SExpr b : ps.subList(2, ps.size())) out.add(subst(b, in));
+                return chainOf(out, new SExpr.Nil(p.line()), p.line());
+            }
+        }
+        if (e.isForm("let") || e.isForm("let*") || e.isForm("letrec") || e.isForm("letrec*") || e.isForm("do")) {
+            List<SExpr> ps = list(e);
+            boolean named = e.isForm("let") && ps.size() > 1 && ps.get(1) instanceof SExpr.Sym;
+            int bi = named ? 2 : 1;
+            if (ps.size() > bi && (ps.get(bi) instanceof SExpr.Pair || ps.get(bi) instanceof SExpr.Nil)) {
+                java.util.Set<String> bound = new java.util.HashSet<>();
+                if (named) bound.add(((SExpr.Sym) ps.get(1)).name());
+                for (SExpr b : list(ps.get(bi))) if (b instanceof SExpr.Pair bp && bp.car() instanceof SExpr.Sym bs) bound.add(bs.name());
+                java.util.Map<String, String> in = without(m, bound);
+                boolean recInits = e.isForm("letrec") || e.isForm("letrec*");
+                List<SExpr> nb = new ArrayList<>();
+                for (SExpr b : list(ps.get(bi))) {
+                    if (!(b instanceof SExpr.Pair)) { nb.add(b); continue; }
+                    List<SExpr> bl = list(b);
+                    List<SExpr> r = new ArrayList<>();
+                    r.add(bl.get(0));
+                    if (bl.size() > 1) r.add(subst(bl.get(1), recInits ? in : m));
+                    for (int k = 2; k < bl.size(); k++) r.add(subst(bl.get(k), in)); // do steps
+                    nb.add(chainOf(r, new SExpr.Nil(b.line()), b.line()));
+                }
+                List<SExpr> out = new ArrayList<>(ps.subList(0, bi));
+                out.add(chainOf(nb, new SExpr.Nil(p.line()), p.line()));
+                for (SExpr x : ps.subList(bi + 1, ps.size())) out.add(subst(x, in));
+                return chainOf(out, new SExpr.Nil(p.line()), p.line());
+            }
+        }
+        return new SExpr.Pair(subst(p.car(), m), subst(p.cdr(), m), p.line());
+    }
+
+    private SExpr substQQ(SExpr e, java.util.Map<String, String> m) {
+        if (e.isForm("unquote") || e.isForm("unquote-splicing")) {
+            SExpr.Pair p = (SExpr.Pair) e;
+            return new SExpr.Pair(p.car(), subst(p.cdr(), m), p.line());
+        }
+        if (e instanceof SExpr.Pair p) return new SExpr.Pair(substQQ(p.car(), m), substQQ(p.cdr(), m), p.line());
+        return e;
     }
 
     private void emitBeginExpr(SExpr.Pair form, int ind) throws SchemeException {

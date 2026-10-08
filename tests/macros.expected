@@ -5,14 +5,14 @@ def demo2():
     return (_print(1), [])[-1]
 
 def h1(tmp, other):
-    tmp_h1 = tmp
+    tmp_h1_l1 = tmp
     tmp = other
-    other = tmp_h1
+    other = tmp_h1_l1
     return [tmp, other]
 
 def h2(t):
-    t_h2 = False
-    return (t_h2 if ((t_h2) is not False) else t)
+    t_h2_l2 = False
+    return (t_h2_l2 if ((t_h2_l2) is not False) else t)
 
 def h3():
     return ((lambda p, q: (p + q)))(1, 2)

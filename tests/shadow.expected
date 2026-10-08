@@ -1,0 +1,58 @@
+def sh1(x):
+    x_l1 = (x * 2)
+    _display(x_l1)
+    return x
+
+def sh2(x):
+    y_l2 = 1
+    y_l3 = (y_l2 + 1)
+    x = (x + y_l3)
+    return x
+
+def sh3():
+    a_l4 = 1
+    a_l5 = (a_l4 + 1)
+    return a_l5
+
+def sh4(a, b):
+    a_l6 = b
+    b_l7 = a
+    return [a_l6, b_l7]
+
+def sh5(n):
+    acc_l8 = 0
+    def _lam1(i):
+        nonlocal acc_l8
+        acc_l8 = (acc_l8 + i)
+    for _fi in [1, 2, n]:
+        _lam1(_fi)
+    return acc_l8
+
+w = 5
+
+def sh6():
+    _display(w)
+    w_l9 = 1
+    return (w_l9 + 1)
+
+def sh7():
+    x_l10 = _Sym("outer")
+    return [x_l10, _Sym("x")]
+
+def sh8():
+    v_l11 = 3
+    return [_Sym("v"), v_l11]
+
+def sh9(n):
+    i_l12 = 10
+    i = 0
+    s = 0
+    while True:
+        if (i == n):
+            return (s + i)
+        _ds = ((i + 1), (s + i),)
+        i = _ds[0]
+        s = _ds[1]
+
+
+run()
