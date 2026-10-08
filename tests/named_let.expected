@@ -9,14 +9,14 @@ def draw():
 
 def sum_to(n):
     def loop(i, acc):
-        return (acc if ((i > n)) else loop((i + 1), (acc + i)))
+        return (acc if (i > n) else loop((i + 1), (acc + i)))
     return loop(0, 0)
 
 def classify(x):
     if (x > 0):
         if (x > 100):
             def loop(i):
-                return (i if ((i < 100)) else loop((i - 10)))
+                return (i if (i < 100) else loop((i - 10)))
             return loop(x)
         else:
             return "small"

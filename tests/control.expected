@@ -1,5 +1,5 @@
 def c1(x):
-    return (cadr(_c1) if (_c1 := next((_p for _p in [[1, "one"], [2, "two"]] if _p[0] == x), False)) else "none")
+    return (cadr(_c1) if (_c1 := next((_p for _p in [[1, "one"], [2, "two"]] if _p[0] == x), False)) is not False else "none")
 
 def c2(x):
     return ("small" if x in (1, 2, 3,) else "mid" if x in (4, 5, 6,) else "big")
@@ -16,7 +16,7 @@ def c3(n):
 
 def c4(x):
     try:
-        return (_raise("neg") if ((x < 0)) else (x * 2))
+        return (_raise("neg") if (x < 0) else (x * 2))
     except Exception as e:
         e = _unwrap(e)
         return ["caught", e]
@@ -30,7 +30,7 @@ def c6():
 
 def c7():
     def loop(i, acc):
-        return (list(reversed(acc)) if ((i == 3)) else loop((i + 1), cons((i * i), acc)))
+        return (list(reversed(acc)) if (i == 3) else loop((i + 1), cons((i * i), acc)))
     return loop(0, [])
 
 def c8(x):
@@ -40,7 +40,7 @@ def c9(x):
     return (1 + ((_display("p"), 10)[-1] if (x > 0) else 20))
 
 def c10(x):
-    if (_c3 := next((_p for _p in [[1, "a"]] if _p[0] == x), False)):
+    if (_c3 := next((_p for _p in [[1, "a"]] if _p[0] == x), False)) is not False:
         (lambda p: _display((p)[1]))(_c3)
     return "done"
 

@@ -8,7 +8,7 @@ def b2():
     return (10 + ((x := 5), x)[-1])
 
 def b3():
-    return ((_print("pos"), x)[-1] if ((x > 0)) else "neg")
+    return ((_print("pos"), x)[-1] if (x > 0) else "neg")
 
 def n1():
     return string_to_number("42")

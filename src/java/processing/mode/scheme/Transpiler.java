@@ -358,14 +358,14 @@ public class Transpiler {
         if ((last.isForm("when") || last.isForm("unless")) && !noReturn) {
             List<SExpr> wf = list(last);
             hoistLambdas(wf.get(1), ind);
-            indent(ind); emit(last.isForm("unless") ? "if not " : "if "); emitExpr(wf.get(1), ind); emit(":\n");
+            indent(ind); emit(last.isForm("unless") ? "if not " : "if "); emitTest(wf.get(1), ind); emit(":\n");
             emitBody(wf.subList(2, wf.size()), ind+1, false);
             return;
         }
         boolean hasNamedLetBranch = last.isForm("if") && containsNamedLet(last);
         if (hasNamedLetBranch && !noReturn) {
             List<SExpr> f = ((SExpr.Pair) last).toList();
-            indent(ind); emit("if "); emitExpr(f.get(1), ind); emit(":\n");
+            indent(ind); emit("if "); emitTest(f.get(1), ind); emit(":\n");
             emitBody(List.of(f.get(2)), ind+1, false);
             if (f.size() > 3) { indent(ind); emit("else:\n"); emitBody(List.of(f.get(3)), ind+1, false); }
             return;
@@ -457,11 +457,11 @@ public class Transpiler {
         SExpr test = nth(e,1), then = nth(e,2);
         SExpr els = list(e).size() > 3 ? nth(e,3) : null;
         if (asStmt) {
-            indent(ind); emit("if "); emitExpr(test, ind); emit(":\n");
+            indent(ind); emit("if "); emitTest(test, ind); emit(":\n");
             marker(then.line(), ind+1); emitStmt(then, ind+1);
             if (els != null) { indent(ind); emit("else:\n"); marker(els.line(), ind+1); emitStmt(els, ind+1); }
         } else {
-            emit("("); emitExpr(then, ind); emit(" if ("); emitExpr(test, ind); emit(") else ");
+            emit("("); emitExpr(then, ind); emit(" if "); emitTest(test, ind); emit(" else ");
             if (els != null) emitExpr(els, ind); else emit("None");
             emit(")");
         }
@@ -487,10 +487,10 @@ public class Transpiler {
             // Capture the test once: (f(_c) if (_c := test) else ...) / (_c if (_c := test) else ...)
             String t = "_c" + (++condN);
             if (arrow) { emitExpr(clause.get(2), ind); emit("(" + t + ")"); } else emit(t);
-            emit(" if (" + t + " := "); emitExpr(test, ind); emit(")");
+            emit(" if (" + t + " := "); emitExpr(test, ind); emit(")"); if (!isBoolExpr(test)) emit(" is not False");
         } else {
             emitSeqExpr(clause.subList(1, clause.size()), ind);
-            emit(" if "); emitExpr(test, ind);
+            emit(" if "); emitTest(test, ind);
         }
         emit(" else ");
         emitCondClauses(clauses, i + 1, ind);
@@ -516,12 +516,12 @@ public class Transpiler {
             if (isElse) emit("else:\n");
             else if (arrow) {
                 String t = "_c" + (++condN);
-                emit((first ? "if (" : "elif (") + t + " := "); emitExpr(c.get(0), ind); emit("):\n");
+                emit((first ? "if (" : "elif (") + t + " := "); emitExpr(c.get(0), ind); emit(")"); if (!isBoolExpr(c.get(0))) emit(" is not False"); emit(":\n");
                 indent(ind+1); emitExpr(c.get(2), ind+1); emit("(" + t + ")\n");
                 first = false;
                 continue;
             }
-            else { emit(first ? "if " : "elif "); emitExpr(c.get(0), ind); emit(":\n"); }
+            else { emit(first ? "if " : "elif "); emitTest(c.get(0), ind); emit(":\n"); }
             List<SExpr> body = c.subList(1, c.size());
             if (body.isEmpty()) { indent(ind+1); emit("pass\n"); }
             else for (SExpr b : body) emitStmt(b, ind+1);
@@ -587,7 +587,7 @@ public class Transpiler {
                 else emit("pass\n");
                 handled = true;
             } else {
-                indent(ind+1); emit("if "); emitExpr(test, ind+1); emit(":\n");
+                indent(ind+1); emit("if "); emitTest(test, ind+1); emit(":\n");
                 indent(ind+2);
                 if (c.size() > 1) { emit("return "); emitExpr(c.get(c.size()-1), ind+2); emit("\n"); }
                 else emit("pass\n");
@@ -632,8 +632,7 @@ public class Transpiler {
     }
 
     private void emitWhen(SExpr e, int ind, boolean negate) throws SchemeException {
-        indent(ind); emit("if "); if (negate) emit("not (");
-        emitExpr(nth(e,1), ind); if (negate) emit(")"); emit(":\n");
+        indent(ind); emit(negate ? "if not " : "if "); emitTest(nth(e,1), ind); emit(":\n");
         List<SExpr> body = list(e).subList(2, list(e).size());
         if (body.isEmpty()) { indent(ind+1); emit("pass\n"); }
         else for (SExpr b : body) emitStmt(b, ind+1);
@@ -697,7 +696,7 @@ public class Transpiler {
             indent(ind); emit(snake(sym(v.get(0))) + " = "); emitExpr(v.get(1), ind); emit("\n");
         }
         indent(ind); emit("while True:\n");
-        indent(ind+1); emit("if "); emitExpr(term.get(0), ind+1); emit(":\n");
+        indent(ind+1); emit("if "); emitTest(term.get(0), ind+1); emit(":\n");
         if (term.size() > 1) {
             SExpr lastTerm = term.get(term.size()-1);
             for (int i = 1; i < term.size() - 1; i++) emitStmt(term.get(i), ind+2);
@@ -797,7 +796,7 @@ public class Transpiler {
             case "guard"      -> { emitGuardExpr(pair, ind); return; }
             case "and"        -> { emitAndOr(args, ind, "and", "True"); return; }
             case "or"         -> { emitAndOr(args, ind, "or",  "False"); return; }
-            case "not"        -> { emit("(not ("); emitExpr(args.get(0), ind); emit("))"); return; }
+            case "not"        -> { if (isBoolExpr(args.get(0))) { emit("(not "); emitExpr(args.get(0), ind); emit(")"); } else { emit("(("); emitExpr(args.get(0), ind); emit(") is False)"); } return; }
             case "begin"      -> { emitBeginExpr(pair, ind); return; }
             case "let","let*","letrec","letrec*" -> { emitLetExpr(pair, ind); return; }
             case "values"     -> { if (args.size()==1) emitExpr(args.get(0),ind); else { emit("("); emitArgs(args,ind); emit(")"); } return; }
@@ -936,6 +935,25 @@ public class Transpiler {
         localVars.clear(); localVars.addAll(wl);
     }
 
+
+    // Scheme: only #f is false. Python: 0, [], "" and None are false too.
+    // Tests that already yield a bool stay as they are; anything else is compared against False.
+    private boolean isBoolExpr(SExpr e) {
+        if (!(e instanceof SExpr.Pair p) || !(p.car() instanceof SExpr.Sym h)) return false;
+        String n = h.name();
+        if (n.equals("and") || n.equals("or")) {
+            for (SExpr a : list(e).subList(1, list(e).size())) if (!isBoolExpr(a)) return false;
+            return true;
+        }
+        return n.endsWith("?") || n.equals("<") || n.equals(">") || n.equals("=")
+            || n.equals("<=") || n.equals(">=") || n.equals("not");
+    }
+
+    private void emitTest(SExpr t, int ind) throws SchemeException {
+        if (isBoolExpr(t)) { emitExpr(t, ind); return; }
+        emit("(("); emitExpr(t, ind); emit(") is not False)");
+    }
+
     private void emitBeginExpr(SExpr.Pair form, int ind) throws SchemeException {
         List<SExpr> items = list(form).subList(1, list(form).size());
         if (items.isEmpty()) { emit("None"); return; }
@@ -1020,8 +1038,27 @@ public class Transpiler {
 
     private void emitAndOr(List<SExpr> args, int ind, String op, String empty) throws SchemeException {
         if (args.isEmpty()) { emit(empty); return; }
+        if (args.size() == 1) { emitExpr(args.get(0), ind); return; }
+        if (args.stream().allMatch(this::isBoolExpr)) {
+            emit("(");
+            for (int i = 0; i < args.size(); i++) { if (i > 0) emit(" " + op + " "); emitExpr(args.get(i), ind); }
+            emit(")");
+            return;
+        }
+        emitAndOrChain(args, 0, ind, op);
+    }
+
+    // Scheme and/or: only #f is false, and the result is an operand's value, not a bool.
+    private void emitAndOrChain(List<SExpr> args, int i, int ind, String op) throws SchemeException {
+        if (i == args.size() - 1) { emitExpr(args.get(i), ind); return; }
         emit("(");
-        for (int i = 0; i < args.size(); i++) { if (i>0) emit(" " + op + " "); emitExpr(args.get(i), ind); }
+        if (op.equals("and")) {
+            emit("False if ("); emitExpr(args.get(i), ind); emit(") is False else ");
+        } else {
+            String t = "_c" + (++condN);
+            emit(t + " if (" + t + " := "); emitExpr(args.get(i), ind); emit(") is not False else ");
+        }
+        emitAndOrChain(args, i + 1, ind, op);
         emit(")");
     }
 

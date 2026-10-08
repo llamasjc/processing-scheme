@@ -12,7 +12,7 @@ def h1(tmp, other):
 
 def h2(t):
     t_h2 = False
-    return (t_h2 if (t_h2) else t)
+    return (t_h2 if ((t_h2) is not False) else t)
 
 def h3():
     return ((lambda p, q: (p + q)))(1, 2)
