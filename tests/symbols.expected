@@ -31,5 +31,15 @@ def s10():
 def s11():
     return _eqv(_Sym("q"), _Sym("q"))
 
+calls = 0
+
+def next_key():
+    global calls
+    calls = (calls + 1)
+    return _Sym("c")
+
+def s12():
+    return (1 if (_c2 := next_key()) in (_Sym("a"),) else 2 if _c2 in (_Sym("b"),) else (_display("c"), 3)[-1] if _c2 in (_Sym("c"),) else 4)
+
 
 run()

@@ -14,3 +14,7 @@
 ;; py: s7() == 2 and s8() == ['y', 2] and s9() == ['c', 'd']
 ;; py: _show(raw(s10()), True) == '(a "b")'
 ;; py: s11() is True
+(define calls 0)
+(define (next-key) (set! calls (+ calls 1)) 'c)
+(define (s12) (case (next-key) ((a) 1) ((b) 2) ((c) (display "c") 3) (else 4)))
+;; py: s12() == 3 and calls == 1
