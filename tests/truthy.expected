@@ -1,12 +1,12 @@
 def k1(x):
-    return ("yes" if ((x) is not False) else "no")
+    return (_Sym("yes") if ((x) is not False) else _Sym("no"))
 
 def k2(x):
-    return ("yes" if ((x) is not False) else "no")
+    return (_Sym("yes") if ((x) is not False) else _Sym("no"))
 
 def k3(x):
     if ((x) is not False):
-        return "yes"
+        return _Sym("yes")
 
 def k4(x):
     return ((x) is False)
@@ -19,11 +19,11 @@ def k6(a, b):
 
 def k7(n):
     def loop(i, acc):
-        return (acc if is_null(i) else loop([], cons("x", acc)))
+        return (acc if is_null(i) else loop([], cons(_Sym("x"), acc)))
     return loop(n, [])
 
 def k8(x):
-    return ("pos" if (x > 0) else "nonpos")
+    return (_Sym("pos") if (x > 0) else _Sym("nonpos"))
 
 
 run()

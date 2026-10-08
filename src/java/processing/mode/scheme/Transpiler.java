@@ -140,8 +140,8 @@ public class Transpiler {
         emit("def positive_p(n): return n > 0\n");
         emit("def negative_p(n): return n < 0\n");
         emit("def number_p(n): return isinstance(n, (int, float))\n");
-        emit("def string_p(n): return isinstance(n, str)\n");
-        emit("def symbol_p(n): return isinstance(n, str)\n");
+        emit("def string_p(n): return isinstance(n, str) and not isinstance(n, _Sym)\n");
+        emit("def symbol_p(n): return isinstance(n, _Sym)\n");
         emit("def procedure_p(n): return callable(n)\n");
         emit("def char_gt_eq__p(a, b): return a >= b\n");
         emit("def char_lt_eq__p(a, b): return a <= b\n");
@@ -220,7 +220,7 @@ public class Transpiler {
              + "        if test(x, y): return lst[i:]\n"
              + "    return False\n\n");
 
-        emit("def string_to_symbol(s): return s\n"
+        emit("def string_to_symbol(s): return _Sym(s)\n"
              + "def boolean_eq__p(a, *r): return all(x is a for x in r)\n"
              + "def vector_fill(v, x, start=0, end=None):\n"
              + "    for i in range(start, len(v) if end is None else end): v[i] = x\n\n");
@@ -234,6 +234,7 @@ public class Transpiler {
         emit("def _show(x, w=False):\n"
              + "    if x is True: return '#t'\n"
              + "    if x is False: return '#f'\n"
+             + "    if isinstance(x, _Sym): return str.__str__(x)\n"
              + "    if isinstance(x, str):\n"
              + "        return '\"' + x.replace('\\\\', '\\\\\\\\').replace('\"', '\\\\\"') + '\"' if w else x\n"
              + "    if isinstance(x, (list, _Pair)):\n"
@@ -251,6 +252,16 @@ public class Transpiler {
              + "    def __init__(s, obj): Exception.__init__(s, obj); s.obj = obj\n"
              + "def _raise(obj): raise _Raised(obj)\n"
              + "def _unwrap(ex): return ex.obj if isinstance(ex, _Raised) else ex\n\n");
+        emit("class _Sym(str):\n"
+             + "    _tab = {}\n"
+             + "    def __new__(c, n):\n"
+             + "        s = c._tab.get(n)\n"
+             + "        if s is None: s = c._tab[n] = str.__new__(c, n)\n"
+             + "        return s\n"
+             + "    def __eq__(s, o): return s is o or (isinstance(o, _Sym) and str.__eq__(s, o))\n"
+             + "    def __ne__(s, o): return not s.__eq__(o)\n"
+             + "    __hash__ = str.__hash__\n"
+             + "    def __repr__(s): return str.__str__(s)\n\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
@@ -534,28 +545,30 @@ public class Transpiler {
         SExpr key = parts.get(1);
         List<SExpr> clauses = parts.subList(2, parts.size());
         boolean hasElse = clauses.stream().anyMatch(c -> list(c).get(0).isSym("else"));
+        String caseKey = "_c" + (++condN);
         emit("(");
         boolean first2 = true;
         for (int i = 0; i < clauses.size(); i++) {
             List<SExpr> clause = list(clauses.get(i));
             SExpr datums = clause.get(0);
             SExpr val = clause.get(clause.size()-1);
+            List<SExpr> vals = clause.subList(1, clause.size());
             if (datums.isSym("else")) {
                 if (!first2) emit(" else ");
-                emitExpr(val, ind);
+                emitSeqExpr(vals, ind);
             } else {
                 if (!first2) emit(" else ");
-                emitExpr(val, ind);
+                emitSeqExpr(vals, ind);
                 emit(" if ");
-                emitExpr(key, ind);
+                // Evaluate the key once: the first test captures it, later tests reuse it.
+                if (first2) { emit("(" + caseKey + " := "); emitExpr(key, ind); emit(")"); }
+                else emit(caseKey);
                 emit(" in ");
                 List<SExpr> ds = list(datums);
                 emit("(");
                 for (int j = 0; j < ds.size(); j++) {
                     if (j > 0) emit(", ");
-                    SExpr d = ds.get(j);
-                    if (d instanceof SExpr.Sym sym) emit("\"" + sym.name() + "\"");
-                    else emitExpr(d, ind);
+                    emitQuote(ds.get(j));
                 }
                 emit(",)");
                 first2 = false;
@@ -1129,7 +1142,7 @@ public class Transpiler {
             case "pair?"    -> { sb.append("(isinstance("); apE(sb,args.get(0),ind); sb.append(", list) and len("); apE(sb,args.get(0),ind); sb.append(") > 0)"); return sb.toString(); }
             case "list?"    -> { sb.append("isinstance("); apE(sb,args.get(0),ind); sb.append(", list)"); return sb.toString(); }
             case "number?"  -> { sb.append("isinstance("); apE(sb,args.get(0),ind); sb.append(", (int, float))"); return sb.toString(); }
-            case "string?"  -> { sb.append("isinstance("); apE(sb,args.get(0),ind); sb.append(", str)"); return sb.toString(); }
+            case "string?"  -> { sb.append("string_p("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "boolean?" -> { sb.append("isinstance("); apE(sb,args.get(0),ind); sb.append(", bool)"); return sb.toString(); }
             case "procedure?","callable?" -> { sb.append("callable("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "integer?" -> { sb.append("isinstance("); apE(sb,args.get(0),ind); sb.append(", int)"); return sb.toString(); }
@@ -1199,7 +1212,7 @@ public class Transpiler {
         else if (d instanceof SExpr.Bool b)  emit(b.value() ? "True" : "False");
         else if (d instanceof SExpr.Num n)   emit(n.raw());
         else if (d instanceof SExpr.Str s)   emitStr(s.value());
-        else if (d instanceof SExpr.Sym s)   emitStr(s.name());
+        else if (d instanceof SExpr.Sym s)   { emit("_Sym("); emitStr(s.name()); emit(")"); }
         else if (d instanceof SExpr.Char c)  emit("'" + esc(c.toJavaChar()) + "'");
         else if (d instanceof SExpr.Vec v)   { emit("["); for(int i=0;i<v.elements().size();i++){if(i>0)emit(", ");emitQuote(v.elements().get(i));}emit("]"); }
         else if (d instanceof SExpr.Pair p)  { emit("["); List<SExpr> items=p.toList(); for(int i=0;i<items.size();i++){if(i>0)emit(", ");emitQuote(items.get(i));}emit("]"); }

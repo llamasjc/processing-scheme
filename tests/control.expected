@@ -1,8 +1,8 @@
 def c1(x):
-    return (cadr(_c1) if (_c1 := next((_p for _p in [[1, "one"], [2, "two"]] if _p[0] == x), False)) is not False else "none")
+    return (cadr(_c1) if (_c1 := next((_p for _p in [[1, _Sym("one")], [2, _Sym("two")]] if _p[0] == x), False)) is not False else _Sym("none"))
 
 def c2(x):
-    return ("small" if x in (1, 2, 3,) else "mid" if x in (4, 5, 6,) else "big")
+    return (_Sym("small") if (_c2 := x) in (1, 2, 3,) else _Sym("mid") if _c2 in (4, 5, 6,) else _Sym("big"))
 
 def c3(n):
     i = 0
@@ -16,14 +16,14 @@ def c3(n):
 
 def c4(x):
     try:
-        return (_raise("neg") if (x < 0) else (x * 2))
+        return (_raise(_Sym("neg")) if (x < 0) else (x * 2))
     except Exception as e:
         e = _unwrap(e)
-        return ["caught", e]
+        return [_Sym("caught"), e]
 
 def c5(x):
     if (x > 0):
-        return "pos"
+        return _Sym("pos")
 
 def c6():
     return _add(*([1, 2] + list([3, 4])))
@@ -34,15 +34,15 @@ def c7():
     return loop(0, [])
 
 def c8(x):
-    return ("big" if (x > 10) else (_c2 if (_c2 := (x > 5)) else "small"))
+    return (_Sym("big") if (x > 10) else (_c3 if (_c3 := (x > 5)) else _Sym("small")))
 
 def c9(x):
     return (1 + ((_display("p"), 10)[-1] if (x > 0) else 20))
 
 def c10(x):
-    if (_c3 := next((_p for _p in [[1, "a"]] if _p[0] == x), False)) is not False:
-        (lambda p: _display((p)[1]))(_c3)
-    return "done"
+    if (_c4 := next((_p for _p in [[1, _Sym("a")]] if _p[0] == x), False)) is not False:
+        (lambda p: _display((p)[1]))(_c4)
+    return _Sym("done")
 
 
 run()

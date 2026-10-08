@@ -1,0 +1,35 @@
+def s1():
+    return symbol_p(_Sym("a"))
+
+def s2():
+    return symbol_p("a")
+
+def s3():
+    return string_p(_Sym("a"))
+
+def s4():
+    return _eqv(_Sym("a"), string_to_symbol("a"))
+
+def s5():
+    return (_Sym("a") == "a")
+
+def s6():
+    return string_p(str(_Sym("abc")))
+
+def s7():
+    return (1 if (_c1 := _Sym("b")) in (_Sym("a"),) else 2 if _c1 in (_Sym("b"), _Sym("c"),) else 3)
+
+def s8():
+    return next((_p for _p in [[_Sym("x"), 1], [_Sym("y"), 2]] if _p[0] == _Sym("y")), False)
+
+def s9():
+    return _member(_Sym("c"), [_Sym("a"), _Sym("b"), _Sym("c"), _Sym("d")], _eqv)
+
+def s10():
+    return [_Sym("a"), "b"]
+
+def s11():
+    return _eqv(_Sym("q"), _Sym("q"))
+
+
+run()

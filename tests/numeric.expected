@@ -8,10 +8,10 @@ def e():
     return [(2 ** 10), (2.0 ** 0.5), abs(-3), (4 % 2 == 0), exact_p(1), inexact_p(1.0)]
 
 def eqs():
-    return [_eqv("a", "a"), _eqv(1.0, 1.0), ([1, 2] == [1, 2]), (1 == 1.0)]
+    return [_eqv(_Sym("a"), _Sym("a")), _eqv(1.0, 1.0), ([1, 2] == [1, 2]), (1 == 1.0)]
 
 def lists():
-    return [next((_p for _p in [[1, "a"], [2, "b"]] if _p[0] == 2), False), _member(3, [1, 2]), ([1, 2, 3])[1:]]
+    return [next((_p for _p in [[1, _Sym("a")], [2, _Sym("b")]] if _p[0] == 2), False), _member(3, [1, 2]), ([1, 2, 3])[1:]]
 
 
 run()
