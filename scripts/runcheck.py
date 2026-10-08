@@ -19,6 +19,11 @@ def _line_of(f):
     except Exception as e: return g["_scm_where"](e.__traceback__)
     return None
 g["line_of"] = _line_of
+def _err_of(f):
+    try: f()
+    except Exception as e: return str(e)
+    return None
+g["err_of"] = _err_of
 import ast, builtins
 class _Wrap(ast.NodeTransformer):
     # Results of sketch calls are compared as plain Python values (symbols -> str).

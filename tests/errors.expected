@@ -1,12 +1,18 @@
 def bad_car():
-    return ([])[0]
+    return car([])
 
 def thrower():
     return _raise(_Sym("boom"))
 
 def multi(x):
     _display(x)
-    return [1, 2][x]
+    return vector_ref([1, 2], x)
+
+def bad_cdr():
+    return cdr([])
+
+def pair_car():
+    return car(cons(1, 2))
 
 
 _scm_wrap(globals())

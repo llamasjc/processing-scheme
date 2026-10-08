@@ -11,7 +11,7 @@ def t4():
     v_l1 = make_vector(3, 0)
     v_l1.__setitem__(0, 9)
     vector_fill(v_l1, 7)
-    return [v_l1[1], len(v_l1), vector_to_list(v_l1)]
+    return [vector_ref(v_l1, 1), len(v_l1), vector_to_list(v_l1)]
 
 def t5():
     acc_l2 = []

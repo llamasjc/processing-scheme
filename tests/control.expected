@@ -41,7 +41,7 @@ def c9(x):
 
 def c10(x):
     if (_c4 := next((_p for _p in [[1, _Sym("a")]] if _p[0] == x), False)) is not False:
-        (lambda p: _display((p)[1]))(_c4)
+        (lambda p: _display(cadr(p)))(_c4)
     return _Sym("done")
 
 

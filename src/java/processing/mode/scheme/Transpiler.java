@@ -289,7 +289,7 @@ public class Transpiler {
              + "    except Exception: pass\n"
              + "    _sys.stdout.flush()\n"
              + "    n = _scm_where(e.__traceback__)\n"
-             + "    what = _show(e.obj, True) if isinstance(e, _Raised) else type(e).__name__ + ': ' + str(e)\n"
+             + "    what = _show(e.obj, True) if isinstance(e, _Raised) else str(e) if isinstance(e, _SchemeError) else type(e).__name__ + ': ' + str(e)\n"
              + "    print(('Error on line %d: ' % n if n else 'Error: ') + what, file=_sys.stderr)\n"
              + "def _scm_hook(t, v, tb):\n"
              + "    _scm_report(v)\n"
@@ -309,6 +309,26 @@ public class Transpiler {
              + "        if callable(f) and not isinstance(f, type) and getattr(f, '__module__', None) == g.get('__name__') \\\n"
              + "           and (k in ('setup', 'draw', 'settings') or k.startswith(('mouse_', 'key_', 'window_'))):\n"
              + "            g[k] = _scm_guard(f)\n"
+             + "\n");
+        emit("class _SchemeError(Exception): pass\n"
+             + "def _bad(fn, want, got): raise _SchemeError(fn + ': expected ' + want + ', got ' + _show(got, True))\n"
+             + "def car(p):\n"
+             + "    if isinstance(p, _Pair): return p.car\n"
+             + "    if isinstance(p, (list, tuple)) and p: return p[0]\n"
+             + "    _bad('car', 'a pair', p)\n"
+             + "def cdr(p):\n"
+             + "    if isinstance(p, _Pair): return p.cdr\n"
+             + "    if isinstance(p, list) and p: return p[1:]\n"
+             + "    if isinstance(p, tuple) and p: return list(p[1:])\n"
+             + "    _bad('cdr', 'a pair', p)\n"
+             + "def cadr(p):\n"
+             + "    if isinstance(p, (list, tuple)) and len(p) > 1: return p[1]\n"
+             + "    return car(cdr(p))\n"
+             + "def vector_ref(v, i):\n"
+             + "    if not isinstance(v, (list, tuple)): _bad('vector-ref', 'a vector', v)\n"
+             + "    if not (isinstance(i, int) and 0 <= i < len(v)):\n"
+             + "        raise _SchemeError('vector-ref: index ' + _show(i) + ' out of range for a vector of length ' + str(len(v)))\n"
+             + "    return v[i]\n"
              + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
@@ -878,7 +898,7 @@ public class Transpiler {
             case "set!"       -> { emitSetExpr(pair, ind); return; }
             case "when","unless" -> { emit("None"); return; }
             case "vector"     -> { emit("["); emitArgs(args, ind); emit("]"); return; }
-            case "vector-ref" -> { emitExpr(args.get(0),ind); emit("["); emitExpr(args.get(1),ind); emit("]"); return; }
+            case "vector-ref" -> { emit("vector_ref("); emitExpr(args.get(0),ind); emit(", "); emitExpr(args.get(1),ind); emit(")"); return; }
             case "vector-set!" -> { emitExpr(args.get(0),ind); emit(".__setitem__("); emitExpr(args.get(1),ind); emit(", "); emitExpr(args.get(2),ind); emit(")"); return; }
             case "vector-length","string-length","length" -> { emit("len("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "apply"      -> { emitApply(args, ind); return; }
@@ -1303,9 +1323,9 @@ public class Transpiler {
     private String listOp(String n, List<SExpr> args, int ind) throws SchemeException {
         StringBuilder sb = new StringBuilder();
         switch (n) {
-            case "car","first"   -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[0]"); return sb.toString(); }
+            case "car","first"   -> { sb.append("car("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "cdr","rest"    -> { sb.append("cdr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
-            case "cadr","second" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[1]"); return sb.toString(); }
+            case "cadr","second" -> { sb.append("cadr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "caddr","third" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[2]"); return sb.toString(); }
             case "cadddr","fourth" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[3]"); return sb.toString(); }
             case "cddr"   -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[2:]"); return sb.toString(); }
