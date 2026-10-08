@@ -974,7 +974,7 @@ public class Transpiler {
             case "list->string"  -> { emit("''.join("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "string-append" -> { emitBinOp(args, " + ", ind); return; }
             case "substring"  -> { emitExpr(args.get(0),ind); emit("["); emitExpr(args.get(1),ind); emit(":"); if(args.size()>2) emitExpr(args.get(2),ind); emit("]"); return; }
-            case "string-ref" -> { emitExpr(args.get(0),ind); emit("["); emitExpr(args.get(1),ind); emit("]"); return; }
+            case "string-ref" -> { emit("string_ref("); emitExpr(args.get(0),ind); emit(", "); emitExpr(args.get(1),ind); emit(")"); return; }
             case "string-upcase"  -> { emitExpr(args.get(0),ind); emit(".upper()"); return; }
             case "string-downcase" -> { emitExpr(args.get(0),ind); emit(".lower()"); return; }
             case "string=?"  -> { emitExpr(args.get(0),ind); emit(" == "); emitExpr(args.get(1),ind); return; }
@@ -1381,9 +1381,9 @@ public class Transpiler {
             case "car","first"   -> { sb.append("car("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "cdr","rest"    -> { sb.append("cdr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "cadr","second" -> { sb.append("cadr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
-            case "caddr","third" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[2]"); return sb.toString(); }
+            case "caddr","third" -> { sb.append("caddr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "cadddr","fourth" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[3]"); return sb.toString(); }
-            case "cddr"   -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")[2:]"); return sb.toString(); }
+            case "cddr"   -> { sb.append("cddr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "list"   -> { sb.append("["); apAll(sb,args,ind); sb.append("]"); return sb.toString(); }
             case "list-ref" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")["); apE(sb,args.get(1),ind); sb.append("]"); return sb.toString(); }
             case "list-tail" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(")["); apE(sb,args.get(1),ind); sb.append(":]"); return sb.toString(); }

@@ -46,19 +46,19 @@ def tl15():
     return _member(3, cdr([1, 2, 3, 4]), _eqv)
 
 def tl16():
-    return ([1, 2, 3, 4])[2:]
+    return cddr([1, 2, 3, 4])
 
 def tl17():
-    return ([1, 2, 3])[2]
+    return caddr([1, 2, 3])
 
 def tl18():
     return cdar([[1, 2], 3])
 
 def tl19():
-    return ([1])[2:]
+    return cddr([1])
 
 def tl20():
-    return "abc"[5]
+    return string_ref("abc", 5)
 
 
 _scm_wrap(globals())
