@@ -17,6 +17,7 @@ import java.util.*;
 public class Transpiler {
     private final java.util.Map<SExpr, String> hoisted = new java.util.IdentityHashMap<>();
     private int lamN = 0;
+    private int condN = 0;
     private final java.util.Set<SExpr> tailLets = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
     // mewnala functions: scheme-name → python_name (simple snake_case mapping)
@@ -246,6 +247,10 @@ public class Transpiler {
              + "def _print(*a): print(*(_show(x) for x in a), end='')\n\n");
         emit("def exact_p(n): return isinstance(n, int) and not isinstance(n, bool)\n"
              + "def inexact_p(n): return isinstance(n, float)\n\n");
+        emit("class _Raised(Exception):\n"
+             + "    def __init__(s, obj): Exception.__init__(s, obj); s.obj = obj\n"
+             + "def _raise(obj): raise _Raised(obj)\n"
+             + "def _unwrap(ex): return ex.obj if isinstance(ex, _Raised) else ex\n\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
@@ -350,6 +355,13 @@ public class Transpiler {
         if (isNamedLet && !noReturn) tailLets.add(last);
         boolean isPlainLet = !isNamedLet && (last.isForm("let") || last.isForm("let*") || last.isForm("letrec") || last.isForm("letrec*"));
         if (isPlainLet && !noReturn) { tailLets.add(last); emitStmt(last, ind); return; }
+        if ((last.isForm("when") || last.isForm("unless")) && !noReturn) {
+            List<SExpr> wf = list(last);
+            hoistLambdas(wf.get(1), ind);
+            indent(ind); emit(last.isForm("unless") ? "if not " : "if "); emitExpr(wf.get(1), ind); emit(":\n");
+            emitBody(wf.subList(2, wf.size()), ind+1, false);
+            return;
+        }
         boolean hasNamedLetBranch = last.isForm("if") && containsNamedLet(last);
         if (hasNamedLetBranch && !noReturn) {
             List<SExpr> f = ((SExpr.Pair) last).toList();
@@ -466,17 +478,31 @@ public class Transpiler {
         List<SExpr> clause = list(clauses.get(i));
         SExpr test = clause.get(0);
         if (test.isSym("else")) {
-            if (clause.size() > 1) emitExpr(clause.get(clause.size()-1), ind);
-            else emit("None");
+            if (clause.size() > 1) emitSeqExpr(clause.subList(1, clause.size()), ind); else emit("None");
             return;
         }
+        boolean arrow = clause.size() == 3 && clause.get(1).isSym("=>");
         emit("(");
-        emitExpr(clause.get(clause.size()-1), ind);
-        emit(" if ");
-        emitExpr(test, ind);
+        if (arrow || clause.size() == 1) {
+            // Capture the test once: (f(_c) if (_c := test) else ...) / (_c if (_c := test) else ...)
+            String t = "_c" + (++condN);
+            if (arrow) { emitExpr(clause.get(2), ind); emit("(" + t + ")"); } else emit(t);
+            emit(" if (" + t + " := "); emitExpr(test, ind); emit(")");
+        } else {
+            emitSeqExpr(clause.subList(1, clause.size()), ind);
+            emit(" if "); emitExpr(test, ind);
+        }
         emit(" else ");
         emitCondClauses(clauses, i + 1, ind);
         emit(")");
+    }
+
+    // Several forms in expression position: evaluate all in order, value of the last.
+    private void emitSeqExpr(List<SExpr> forms, int ind) throws SchemeException {
+        if (forms.size() == 1) { emitExpr(forms.get(0), ind); return; }
+        emit("(");
+        for (int k = 0; k < forms.size(); k++) { if (k > 0) emit(", "); emitExpr(forms.get(k), ind); }
+        emit(")[-1]");
     }
 
     private void emitCond(SExpr e, int ind) throws SchemeException {
@@ -485,10 +511,18 @@ public class Transpiler {
         for (SExpr clause : clauses) {
             List<SExpr> c = list(clause);
             boolean isElse = c.get(0).isSym("else");
+            boolean arrow = !isElse && c.size() == 3 && c.get(1).isSym("=>");
             indent(ind);
             if (isElse) emit("else:\n");
+            else if (arrow) {
+                String t = "_c" + (++condN);
+                emit((first ? "if (" : "elif (") + t + " := "); emitExpr(c.get(0), ind); emit("):\n");
+                indent(ind+1); emitExpr(c.get(2), ind+1); emit("(" + t + ")\n");
+                first = false;
+                continue;
+            }
             else { emit(first ? "if " : "elif "); emitExpr(c.get(0), ind); emit(":\n"); }
-            List<SExpr> body = isElse ? c.subList(1,c.size()) : c.subList(1,c.size());
+            List<SExpr> body = c.subList(1, c.size());
             if (body.isEmpty()) { indent(ind+1); emit("pass\n"); }
             else for (SExpr b : body) emitStmt(b, ind+1);
             first = false;
@@ -542,6 +576,7 @@ public class Transpiler {
         for (int i = 0; i < body.size() - 1; i++) emitStmt(body.get(i), ind+1);
         indent(ind+1); emit("return "); emitExpr(body.get(body.size()-1), ind+1); emit("\n");
         indent(ind); emit("except Exception as " + var + ":\n");
+        indent(ind+1); emit(var + " = _unwrap(" + var + ")\n");
         boolean handled = false;
         for (SExpr clause : clauses) {
             List<SExpr> c = list(clause);

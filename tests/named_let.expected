@@ -2,7 +2,7 @@ def draw():
     def loop(i):
         if (i < 3):
             ellipse(i, 0, 1, 1)
-            loop((i + 1))
+            return loop((i + 1))
     loop(0)
     fill(255)
     rect(0, 0, 1, 1)

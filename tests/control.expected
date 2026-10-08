@@ -1,0 +1,48 @@
+def c1(x):
+    return (cadr(_c1) if (_c1 := next((_p for _p in [[1, "one"], [2, "two"]] if _p[0] == x), False)) else "none")
+
+def c2(x):
+    return ("small" if x in (1, 2, 3,) else "mid" if x in (4, 5, 6,) else "big")
+
+def c3(n):
+    i = 0
+    acc = 0
+    while True:
+        if (i == n):
+            return acc
+        _ds = ((i + 1), (acc + i),)
+        i = _ds[0]
+        acc = _ds[1]
+
+def c4(x):
+    try:
+        return (_raise("neg") if ((x < 0)) else (x * 2))
+    except Exception as e:
+        e = _unwrap(e)
+        return ["caught", e]
+
+def c5(x):
+    if (x > 0):
+        return "pos"
+
+def c6():
+    return _add(*([1, 2] + list([3, 4])))
+
+def c7():
+    def loop(i, acc):
+        return (list(reversed(acc)) if ((i == 3)) else loop((i + 1), cons((i * i), acc)))
+    return loop(0, [])
+
+def c8(x):
+    return ("big" if (x > 10) else (_c2 if (_c2 := (x > 5)) else "small"))
+
+def c9(x):
+    return (1 + ((_display("p"), 10)[-1] if (x > 0) else 20))
+
+def c10(x):
+    if (_c3 := next((_p for _p in [[1, "a"]] if _p[0] == x), False)):
+        (lambda p: _display((p)[1]))(_c3)
+    return "done"
+
+
+run()
