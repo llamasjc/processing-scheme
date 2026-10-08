@@ -1,3 +1,6 @@
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+
 plugins { java }
 group   = "processing.mode.scheme"
 version = "0.1.0"
@@ -15,7 +18,7 @@ repositories { mavenCentral() }
 dependencies {
     // processing.app.* lives in java/build/libs/java*.jar
     compileOnly(fileTree("$p4/java/build/libs") { include("java*.jar") })
-    compileOnly(fileTree("/home/pep/sketchbook/modes/CppMode/mode") { include("java-tree-sitter*.jar", "commons-collections4*.jar", "commons-io*.jar", "slf4j*.jar") })
+    compileOnly(fileTree("/home/pep/sketchbook/modes/SchemeMode/mode") { include("java-tree-sitter*.jar", "commons-collections4*.jar", "commons-io*.jar", "slf4j*.jar") })
     // app.jar has Base, Editor, Mode etc.
     compileOnly(fileTree("$p4/app/build/libs") { include("app*.jar") })
     // core
@@ -34,8 +37,19 @@ tasks.register("install") {
     dependsOn("jar")
     group = "install"
     doLast {
-        copy { from(tasks.jar.get().archiveFile); into("$modeDir/mode") }
-        copy { from("mode.properties"); into(modeDir) }
+        val built = tasks.jar.get().archiveFile.get().asFile
+        val tmp = file("$modeDir/mode/.SchemeMode.jar.tmp")
+        built.copyTo(tmp, overwrite = true)
+        Files.move(tmp.toPath(), file("$modeDir/mode/SchemeMode.jar").toPath(),
+            StandardCopyOption.REPLACE_EXISTING,
+            StandardCopyOption.ATOMIC_MOVE)
         println("Installed to $modeDir")
     }
 }
+
+tasks.named<Jar>("jar") {
+    from("resources") { include("queries/**") }
+}
+
+// `gradle jar` alone leaves mode/ stale; always copy into place after.
+tasks.named("jar") { finalizedBy("install") }
