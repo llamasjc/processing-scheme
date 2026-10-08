@@ -244,6 +244,8 @@ public class Transpiler {
              + "def _display(x, port=None): print(_show(x), end='')\n"
              + "def write(x, port=None): print(_show(x, True), end='')\n"
              + "def _print(*a): print(*(_show(x) for x in a), end='')\n\n");
+        emit("def exact_p(n): return isinstance(n, int) and not isinstance(n, bool)\n"
+             + "def inexact_p(n): return isinstance(n, float)\n\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;

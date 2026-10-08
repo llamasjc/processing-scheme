@@ -19,7 +19,9 @@ JAVA
 fi
 fail=0
 for t in tests/*.scm; do
-  out=$(java -cp "$TXD:$CP" Tx < "$t" 2>&1 | grep -v '# scm' | sed '1,/^# -- sketch --$/d')
+  full=$(java -cp "$TXD:$CP" Tx < "$t" 2>&1)
+  printf '%s\n' "$full" > /tmp/regress_full.py
+  out=$(printf '%s\n' "$full" | grep -v '# scm' | sed '1,/^# -- sketch --$/d')
   exp="${t%.scm}.expected"
   if [ "$1" = "--update" ]; then
     printf '%s\n' "$out" > "$exp"; echo "updated $exp"
@@ -28,5 +30,9 @@ for t in tests/*.scm; do
   else
     echo "ok   $t"
   fi
+  [ "$1" = "--update" ] && continue
+  u=$(python3 scripts/undefined.py /tmp/regress_full.py)
+  [ "$u" = "undefined: (none)" ] || { echo "  $u"; fail=1; }
+  python3 scripts/runcheck.py "$t" /tmp/regress_full.py || { echo "FAIL $t (values)"; fail=1; }
 done
 exit $fail

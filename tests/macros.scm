@@ -11,3 +11,7 @@
 (define (h1 tmp other) (swap! tmp other) (list tmp other))
 (define (h2 t) (my-or #f t))
 (define (h3) (my-let ((p 1) (q 2)) (+ p q)))
+;; py: demo() == [2, 3] and demo2() == []
+;; py: h1(1, 2) == [2, 1]
+;; py: h2(5) == 5
+;; py: h3() == 3

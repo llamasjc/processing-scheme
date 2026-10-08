@@ -4,3 +4,6 @@
 (define (b3) (if (> x 0) (begin (print "pos") x) 'neg))
 (define (n1) (string->number "42"))
 (define (n2) (number->string 255 16))
+;; py: b1() == 2
+;; py: b2() == 15
+;; py: n1() == 42 and n2() == 'ff'

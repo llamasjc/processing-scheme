@@ -14,3 +14,5 @@
           (let loop ((i x)) (if (< i 100) i (loop (- i 10))))
           'small)
       'neg))
+;; py: sum_to(4) == 10
+;; py: classify(150) == 90 and classify(5) == 'small' and classify(-1) == 'neg'
