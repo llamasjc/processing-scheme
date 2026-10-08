@@ -371,6 +371,20 @@ public class Transpiler {
              + "_SEQ = (list, tuple, _Tail)\n"
              + "def _tail(p, k): return _Tail(p.b, p.s + k) if isinstance(p, _Tail) else _Tail(p, k)\n"
              + "\n");
+        emit("def caar(p): return car(car(p))\n"
+             + "def cdar(p): return cdr(car(p))\n"
+             + "def cddr(p): return cdr(cdr(p))\n"
+             + "def caddr(p): return car(cdr(cdr(p)))\n"
+             + "def cdddr(p): return cdr(cdr(cdr(p)))\n"
+             + "def cadddr(p): return car(cdr(cdr(cdr(p))))\n"
+             + "def cadar(p): return car(cdr(car(p)))\n"
+             + "def caaar(p): return car(car(car(p)))\n"
+             + "def string_ref(s, i):\n"
+             + "    if not isinstance(s, str): _bad('string-ref', 'a string', s)\n"
+             + "    if not (isinstance(i, int) and 0 <= i < len(s)):\n"
+             + "        raise _SchemeError('string-ref: index ' + _show(i) + ' out of range for a string of length ' + str(len(s)))\n"
+             + "    return s[i]\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;

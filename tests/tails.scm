@@ -19,3 +19,11 @@
 ;; py: tl11() == [3, 4] and tl12() is True and tl13() == 3 and tl14() == 10
 ;; py: tl15() == [3, 4]
 ;; py: _show(raw(tl1())) == '(2 3)'
+(define (tl16) (cddr (list 1 2 3 4)))
+(define (tl17) (caddr (list 1 2 3)))
+(define (tl18) (cdar (list (list 1 2) 3)))
+(define (tl19) (cddr (list 1)))
+(define (tl20) (string-ref "abc" 5))
+;; py: tl16() == [3, 4] and tl17() == 3 and tl18() == [2]
+;; py: err_of(lambda: tl19()) == 'cdr: expected a pair, got ()'
+;; py: err_of(lambda: tl20()) == 'string-ref: index 5 out of range for a string of length 3'

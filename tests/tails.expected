@@ -45,6 +45,21 @@ def tl14():
 def tl15():
     return _member(3, cdr([1, 2, 3, 4]), _eqv)
 
+def tl16():
+    return ([1, 2, 3, 4])[2:]
+
+def tl17():
+    return ([1, 2, 3])[2]
+
+def tl18():
+    return cdar([[1, 2], 3])
+
+def tl19():
+    return ([1])[2:]
+
+def tl20():
+    return "abc"[5]
+
 
 _scm_wrap(globals())
 run()
