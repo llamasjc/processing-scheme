@@ -17,4 +17,5 @@ def n2():
     return number_to_string(255, 16)
 
 
+_scm_wrap(globals())
 run()

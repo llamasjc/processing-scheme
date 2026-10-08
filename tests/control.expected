@@ -45,4 +45,5 @@ def c10(x):
     return _Sym("done")
 
 
+_scm_wrap(globals())
 run()

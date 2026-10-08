@@ -23,4 +23,5 @@ def t5():
     return acc_l2
 
 
+_scm_wrap(globals())
 run()

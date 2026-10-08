@@ -16,4 +16,5 @@ def l4(x):
     return ((lambda y: (y * 10))(x) if (x > 0) else 0)
 
 
+_scm_wrap(globals())
 run()

@@ -24,4 +24,5 @@ def classify(x):
         return _Sym("neg")
 
 
+_scm_wrap(globals())
 run()

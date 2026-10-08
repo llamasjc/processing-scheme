@@ -55,4 +55,5 @@ def sh9(n):
         s = _ds[1]
 
 
+_scm_wrap(globals())
 run()

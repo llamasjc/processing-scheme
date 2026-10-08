@@ -1,0 +1,13 @@
+def bad_car():
+    return ([])[0]
+
+def thrower():
+    return _raise(_Sym("boom"))
+
+def multi(x):
+    _display(x)
+    return [1, 2][x]
+
+
+_scm_wrap(globals())
+run()

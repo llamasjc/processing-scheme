@@ -42,4 +42,5 @@ def s12():
     return (1 if (_c2 := next_key()) in (_Sym("a"),) else 2 if _c2 in (_Sym("b"),) else (_display("c"), 3)[-1] if _c2 in (_Sym("c"),) else 4)
 
 
+_scm_wrap(globals())
 run()

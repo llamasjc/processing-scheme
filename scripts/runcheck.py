@@ -14,6 +14,11 @@ def _plain(x):
     if type(x).__name__ == "_Pair": return (_plain(x.car), _plain(x.cdr))
     return x
 g["__plain"] = _plain
+def _line_of(f):
+    try: f()
+    except Exception as e: return g["_scm_where"](e.__traceback__)
+    return None
+g["line_of"] = _line_of
 import ast, builtins
 class _Wrap(ast.NodeTransformer):
     # Results of sketch calls are compared as plain Python values (symbols -> str).

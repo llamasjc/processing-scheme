@@ -18,4 +18,5 @@ def h3():
     return ((lambda p, q: (p + q)))(1, 2)
 
 
+_scm_wrap(globals())
 run()

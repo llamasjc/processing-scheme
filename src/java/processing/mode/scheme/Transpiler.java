@@ -263,6 +263,51 @@ public class Transpiler {
              + "    def __ne__(s, o): return not s.__eq__(o)\n"
              + "    __hash__ = str.__hash__\n"
              + "    def __repr__(s): return str.__str__(s)\n\n");
+        emit("import sys as _sys, traceback as _tb, functools as _ft\n"
+             + "_scm_src = {}\n"
+             + "def _scm_line(fname, lineno):\n"
+             + "    lines = _scm_src.get(fname)\n"
+             + "    if lines is None:\n"
+             + "        try:\n"
+             + "            with open(fname) as fh: lines = fh.read().splitlines()\n"
+             + "        except Exception: lines = []\n"
+             + "        _scm_src[fname] = lines\n"
+             + "    for i in range(min(lineno, len(lines)) - 1, -1, -1):\n"
+             + "        t = lines[i].strip()\n"
+             + "        if t.startswith('# scm:'):\n"
+             + "            try: return int(t[6:])\n"
+             + "            except ValueError: return None\n"
+             + "    return None\n"
+             + "def _scm_where(tb):\n"
+             + "    for f in reversed(_tb.extract_tb(tb)):\n"
+             + "        n = _scm_line(f.filename, f.lineno)\n"
+             + "        if n is not None: return n\n"
+             + "    return None\n"
+             + "def _scm_report(e):\n"
+             + "    if getattr(e, '_scm_reported', False): return\n"
+             + "    try: e._scm_reported = True\n"
+             + "    except Exception: pass\n"
+             + "    n = _scm_where(e.__traceback__)\n"
+             + "    what = _show(e.obj, True) if isinstance(e, _Raised) else type(e).__name__ + ': ' + str(e)\n"
+             + "    print(('Error on line %d: ' % n if n else 'Error: ') + what, file=_sys.stderr)\n"
+             + "def _scm_hook(t, v, tb):\n"
+             + "    _scm_report(v)\n"
+             + "    _sys.__excepthook__(t, v, tb)\n"
+             + "_sys.excepthook = _scm_hook\n"
+             + "def _scm_guard(f):\n"
+             + "    @_ft.wraps(f)\n"
+             + "    def w(*a, **k):\n"
+             + "        try: return f(*a, **k)\n"
+             + "        except Exception as e:\n"
+             + "            _scm_report(e)\n"
+             + "            raise\n"
+             + "    return w\n"
+             + "def _scm_wrap(g):\n"
+             + "    for k, f in list(g.items()):\n"
+             + "        if callable(f) and not isinstance(f, type) and getattr(f, '__module__', None) == g.get('__name__') \\\n"
+             + "           and (k in ('setup', 'draw', 'settings') or k.startswith(('mouse_', 'key_', 'window_'))):\n"
+             + "            g[k] = _scm_guard(f)\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
@@ -270,7 +315,7 @@ public class Transpiler {
             emit("\n");
         }
 
-        if (!out.toString().contains("\nrun()")) emit("\nrun()\n");
+        if (!out.toString().contains("\nrun()")) emit("\n_scm_wrap(globals())\nrun()\n");
         return out.toString();
     }
 

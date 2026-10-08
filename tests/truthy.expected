@@ -26,4 +26,5 @@ def k8(x):
     return (_Sym("pos") if (x > 0) else _Sym("nonpos"))
 
 
+_scm_wrap(globals())
 run()
