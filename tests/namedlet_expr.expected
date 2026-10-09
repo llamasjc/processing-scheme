@@ -1,0 +1,35 @@
+xs = []
+
+def n1():
+    global xs
+    def loop_n1(i, acc):
+        return (list(reversed(acc)) if (i == 3) else loop_n1((i + 1), cons(i, acc)))
+    xs = loop_n1(0, [])
+    return xs
+
+def n2():
+    def loop_n2(i):
+        return (loop_n2((i + 1)) if (i < 5) else i)
+    return (1 + loop_n2(0))
+
+def n3(x):
+    if (x > 0):
+        _display("p")
+        def loop(i, s):
+            return (s if (i == 0) else loop((i - 1), (s + i)))
+        return loop(x, 0)
+
+def n4():
+    def loop_n3(i):
+        return (_Sym("a") if (i == 2) else loop_n3((i + 1)))
+    def loop_n4(i):
+        return (_Sym("b") if (i == 3) else loop_n4((i + 1)))
+    return [loop_n3(0), loop_n4(0)]
+
+def loop_n5(i, acc):
+    return (acc if (i == 2) else loop_n5((i + 1), cons(i, acc)))
+ys = loop_n5(0, [])
+
+
+_scm_wrap(globals())
+run()

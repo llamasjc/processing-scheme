@@ -15,11 +15,12 @@ import java.util.*;
  *   - Full API in mewnala/__init__.pyi
  */
 public class Transpiler {
-    private final java.util.Map<SExpr, String> hoisted = new java.util.IdentityHashMap<>();
+    private java.util.Map<SExpr, String> hoisted = new java.util.IdentityHashMap<>();
     private int lamN = 0;
     private int condN = 0;
     private int letN = 0;
-    private final java.util.Set<SExpr> tailLets = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    private java.util.Map<SExpr, String> hoistedLets = new java.util.IdentityHashMap<>();
+    private java.util.Set<SExpr> tailLets = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
     // mewnala functions: scheme-name → python_name (simple snake_case mapping)
     private static final Set<String> MEWNALA_FNS = Set.of(
@@ -399,7 +400,7 @@ public class Transpiler {
     // ── Top-level ─────────────────────────────────────────────────────────────
 
     private void emitTopLevel(SExpr f) throws SchemeException {
-        if (f.isForm("define")) { emitDefine(f, 0); return; }
+        if (f.isForm("define")) { hoistLambdas(f, 0); emitDefine(f, 0); return; }
         if (f.isForm("define-record-type")) { emitRecordType(f); return; }
         if (f.isForm("define-syntax") || f.isForm("let-syntax")) {
             marker(f.line(), 0); emit("# define-syntax (skipped)\n"); return;
@@ -776,6 +777,8 @@ public class Transpiler {
 
     private void emitLet(SExpr e, int ind) throws SchemeException {
         boolean tailPos = tailLets.remove(e);
+        String hlet = hoistedLets.get(e);
+        if (hlet != null) { indent(ind); if (tailPos) emit("return "); emitHoistedLetCall(e, hlet, ind); emit("\n"); return; }
         List<SExpr> parts = list(e);
         SExpr second = parts.get(1);
         // Named let
@@ -1040,13 +1043,68 @@ public class Transpiler {
 
     // Lambdas that set! an outer variable can't be Python lambdas: a walrus would bind a
     // lambda-local. Emit each as a def (with nonlocal/global) just above the statement using it.
+    private boolean isNamedLetForm(SExpr e) {
+        return e.isForm("let") && list(e).size() > 2 && list(e).get(1) instanceof SExpr.Sym;
+    }
+
+    // Before a statement: hoist lambdas that set! outer variables, and named lets used as
+    // values, into defs above it. A named let that IS the statement is emitted by emitLet.
     private void hoistLambdas(SExpr e, int ind) throws SchemeException {
+        if (isNamedLetForm(e)) return;
+        if (e.isForm("define") && list(e).size() > 2 && list(e).get(1) instanceof SExpr.Sym) {
+            for (SExpr v : list(e).subList(2, list(e).size())) hoistInner(v, ind);
+            return;
+        }
+        hoistInner(e, ind);
+    }
+
+    private void hoistInner(SExpr e, int ind) throws SchemeException {
         if (!(e instanceof SExpr.Pair)) return;
         if (e.isForm("quote") || e.isForm("quasiquote") || e.isForm("define")) return;
-        if (e.isForm("let") && list(e).size() > 1 && list(e).get(1) instanceof SExpr.Sym) return;
+        if (isNamedLetForm(e)) { hoistNamedLet(e, ind); return; }
         if (e.isForm("lambda")) { hoistLambda((SExpr.Pair) e, ind); return; }
         SExpr cur = e;
-        while (cur instanceof SExpr.Pair c) { hoistLambdas(c.car(), ind); cur = c.cdr(); }
+        while (cur instanceof SExpr.Pair c) { hoistInner(c.car(), ind); cur = c.cdr(); }
+    }
+
+    private void hoistNamedLet(SExpr form, int ind) throws SchemeException {
+        if (hoistedLets.containsKey(form)) return;
+        List<SExpr> ps = list(form);
+        String orig = sym(ps.get(1));
+        String fresh = orig + "__n" + (++letN);
+        List<SExpr> bindings = list(ps.get(2));
+        List<String> pnames = new ArrayList<>();
+        java.util.Set<String> praw = new java.util.HashSet<>();
+        for (SExpr b : bindings) { String n = sym(list(b).get(0)); praw.add(n); pnames.add(snakeBind(n)); }
+        java.util.Map<String, String> m = new java.util.HashMap<>();
+        if (!praw.contains(orig)) m.put(orig, fresh);
+        List<SExpr> body = new ArrayList<>(ps.subList(3, ps.size()));
+        for (int j = 0; j < body.size(); j++) body.set(j, subst(body.get(j), m));
+        String pyName = snakeBind(fresh);
+        hoistedLets.put(form, pyName);
+        marker(form.line(), ind); indent(ind);
+        emit("def " + pyName + "(" + String.join(", ", pnames) + "):\n");
+        boolean wi = inFunction;
+        Set<String> wl = new LinkedHashSet<>(localVars);
+        List<String> outerLocal = new ArrayList<>(), outerGlobal = new ArrayList<>();
+        for (String t : findSetTargets(body)) {
+            if (pnames.contains(t)) continue;
+            if (globalVars.contains(t)) outerGlobal.add(t);
+            else if (wi && wl.contains(t)) outerLocal.add(t);
+        }
+        if (!outerLocal.isEmpty())  { indent(ind+1); emit("nonlocal " + String.join(", ", outerLocal) + "\n"); }
+        if (!outerGlobal.isEmpty()) { indent(ind+1); emit("global " + String.join(", ", outerGlobal) + "\n"); }
+        inFunction = true;
+        localVars.clear(); localVars.addAll(pnames); localVars.addAll(outerLocal); localVars.addAll(outerGlobal);
+        emitBody(body, ind+1);
+        inFunction = wi;
+        localVars.clear(); localVars.addAll(wl);
+    }
+
+    private void emitHoistedLetCall(SExpr form, String name, int ind) throws SchemeException {
+        List<SExpr> inits = new ArrayList<>();
+        for (SExpr b : list(list(form).get(2))) { List<SExpr> bl = list(b); inits.add(bl.size() > 1 ? bl.get(1) : new SExpr.Nil(b.line())); }
+        emit(name + "("); emitArgs(inits, ind); emit(")");
     }
 
     private void hoistLambda(SExpr.Pair form, int ind) throws SchemeException {
@@ -1192,6 +1250,8 @@ public class Transpiler {
     }
 
     private void emitLetExpr(SExpr.Pair form, int ind) throws SchemeException {
+        String hl = hoistedLets.get(form);
+        if (hl != null) { emitHoistedLetCall(form, hl, ind); return; }
         List<SExpr> parts = list(form);
         String head = sym(parts.get(0));
         if (parts.get(1) instanceof SExpr.Sym loopSym2) {
@@ -1495,7 +1555,13 @@ public class Transpiler {
     }
 
     private void apE(StringBuilder sb, SExpr e, int ind) throws SchemeException {
-        Transpiler sub = subTx(); sub.emitExpr(e, ind); sb.append(sub.out);
+        Transpiler sub = subTx();
+        // The sub-transpiler shares hoisting state and name counters with this one.
+        sub.hoisted = hoisted; sub.hoistedLets = hoistedLets; sub.tailLets = tailLets;
+        sub.lamN = lamN; sub.condN = condN; sub.letN = letN;
+        sub.emitExpr(e, ind);
+        lamN = sub.lamN; condN = sub.condN; letN = sub.letN;
+        sb.append(sub.out);
     }
 
     private void apAll(StringBuilder sb, List<SExpr> args, int ind) throws SchemeException {
