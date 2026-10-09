@@ -1,10 +1,11 @@
 build/
 .gradle/
-mode/
+/mode/
 examples/*/build/
 *.class
 *.jar
 __pycache__/
 *.pyc
-build/
 .gradle/
+hs_err_pid*.log
+core.*

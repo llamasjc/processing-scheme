@@ -61,10 +61,21 @@ public class SchemeRunner {
         }
     }
 
+    // Rust tracing lines from Bevy/wgpu/mewnala: "2026-10-09T02:24:38.06Z  WARN target: ...".
+    // TRACE..WARN are dropped so the sketch's own output and error messages stay visible;
+    // ERROR passes through. Set SCHEME_RAW_LOG=1 to see everything.
+    private static final java.util.regex.Pattern LOG_LINE =
+        java.util.regex.Pattern.compile("^\\d{4}-\\d\\d-\\d\\dT\\S+\\s+(TRACE|DEBUG|INFO|WARN)\\s");
+    private static final boolean RAW_LOG = System.getenv("SCHEME_RAW_LOG") != null;
+
+    private static boolean isLogNoise(String l) {
+        return !RAW_LOG && LOG_LINE.matcher(l).find();
+    }
+
     private void pipeOut(InputStream is) {
         new Thread(() -> {
             try (var r = new BufferedReader(new InputStreamReader(is))) {
-                String l; while ((l = r.readLine()) != null) System.out.println(l);
+                String l; while ((l = r.readLine()) != null) { if (!isLogNoise(l)) System.out.println(l); }
             } catch (IOException ignored) {}
         }, "scheme-out").start();
     }
@@ -74,9 +85,7 @@ public class SchemeRunner {
             try (var r = new BufferedReader(new InputStreamReader(is))) {
                 String l;
                 while ((l = r.readLine()) != null) {
-                    if (l.contains("WARN bevy") || l.contains("INFO bevy") ||
-                        l.contains("INFO wgpu") || l.contains("INFO processing_render::sketch: source=") ||
-                        l.contains("WARN wgpu") || l.contains("DEBUG")) continue;
+                    if (isLogNoise(l)) continue;
                     System.err.println(l);
                     synchronized (stderrBuf) { stderrBuf.append(l).append("\n"); }
                 }
