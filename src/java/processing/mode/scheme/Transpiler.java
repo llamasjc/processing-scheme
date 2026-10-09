@@ -1067,6 +1067,16 @@ public class Transpiler {
         while (cur instanceof SExpr.Pair c) { hoistInner(c.car(), ind); cur = c.cdr(); }
     }
 
+
+    private boolean hasNamedLet(SExpr e) {
+        if (!(e instanceof SExpr.Pair)) return false;
+        if (e.isForm("quote") || e.isForm("quasiquote")) return false;
+        if (isNamedLetForm(e)) return true;
+        SExpr cur = e;
+        while (cur instanceof SExpr.Pair c) { if (hasNamedLet(c.car())) return true; cur = c.cdr(); }
+        return false;
+    }
+
     private void hoistNamedLet(SExpr form, int ind) throws SchemeException {
         if (hoistedLets.containsKey(form)) return;
         List<SExpr> ps = list(form);
@@ -1126,7 +1136,10 @@ public class Transpiler {
             else if (inFunction && localVars.contains(t)) outerLocal.add(t);
             else return; // not reachable from a def here; leave the lambda as it is
         }
-        if (outerLocal.isEmpty() && outerGlobal.isEmpty()) return;
+        boolean loopInside = false;
+        for (SExpr b : body) if (hasNamedLet(b)) loopInside = true;
+        // A named let needs statement context, so a lambda containing one becomes a def too.
+        if (outerLocal.isEmpty() && outerGlobal.isEmpty() && !loopInside) return;
         String name = "_lam" + (++lamN);
         hoisted.put(form, name);
         indent(ind);

@@ -30,6 +30,13 @@ def loop_n5(i, acc):
     return (acc if (i == 2) else loop_n5((i + 1), cons(i, acc)))
 ys = loop_n5(0, [])
 
+def n5():
+    def _lam1(n):
+        def loop(i, s):
+            return (s if (i == 0) else loop((i - 1), (s + i)))
+        return loop(n, 0)
+    return list(map(_lam1, [1, 2, 3]))
+
 
 _scm_wrap(globals())
 run()

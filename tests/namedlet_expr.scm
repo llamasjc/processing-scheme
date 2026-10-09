@@ -9,3 +9,5 @@
 ;; py: n3(3) == 6
 ;; py: n4() == ['a', 'b']
 ;; py: ys == [1, 0]
+(define (n5) (map (lambda (n) (let loop ((i n) (s 0)) (if (= i 0) s (loop (- i 1) (+ s i))))) (list 1 2 3)))
+;; py: n5() == [1, 3, 6]
