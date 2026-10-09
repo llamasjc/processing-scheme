@@ -53,3 +53,7 @@ tasks.named<Jar>("jar") {
 
 // `gradle jar` alone leaves mode/ stale; always copy into place after.
 tasks.named("jar") { finalizedBy("install") }
+
+tasks.withType<JavaCompile>().configureEach {
+    options.encoding = "UTF-8"
+}
