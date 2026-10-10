@@ -19,7 +19,13 @@ def k6(a, b):
 
 def k7(n):
     def loop(i, acc):
-        return (acc if is_null(i) else loop([], cons(_Sym("x"), acc)))
+        while True:
+            if is_null(i):
+                return acc
+            else:
+                i, acc = [], cons(_Sym("x"), acc)
+                continue
+            return None
     return loop(n, [])
 
 def k8(x):

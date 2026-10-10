@@ -19,6 +19,8 @@ public class Transpiler {
     private int lamN = 0;
     private int condN = 0;
     private int letN = 0;
+    private String tcoName = null;
+    private List<String> tcoParams = null;
     private java.util.Map<SExpr, String> hoistedLets = new java.util.IdentityHashMap<>();
     private java.util.Set<SExpr> tailLets = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
@@ -512,7 +514,7 @@ public class Transpiler {
 
     // ── define ────────────────────────────────────────────────────────────────
 
-    private void emitDefine(SExpr f, int ind) throws SchemeException {
+    private void emitDefine0(SExpr f, int ind) throws SchemeException {
         List<SExpr> parts = list(f).subList(1, list(f).size());
         if (parts.isEmpty()) throw new SchemeException("empty define", f.line());
         SExpr head = parts.get(0);
@@ -587,6 +589,7 @@ public class Transpiler {
         }
         SExpr last = body.get(body.size() - 1);
         marker(last.line(), ind);
+        if (tcoName != null && !noReturn && emitTailLoop(last, ind, noReturn)) return;
         boolean isNamedLet = last.isForm("let") && last instanceof SExpr.Pair lp && lp.toList().size() > 1 && lp.toList().get(1) instanceof SExpr.Sym;
         if (isNamedLet && !noReturn) tailLets.add(last);
         boolean isPlainLet = !isNamedLet && (last.isForm("let") || last.isForm("let*") || last.isForm("letrec") || last.isForm("letrec*"));
@@ -906,7 +909,7 @@ public class Transpiler {
                     localVars.add(g);
                 }
             }
-            emitBody(body, ind+1);
+            emitLoopBody(body, loopSym.name(), params, ind+1);
             inFunction = wi; localVars.clear(); localVars.addAll(wl);
             indent(ind); emit((tailPos ? "return " : "") + loopName + "("); emitArgs(inits, ind); emit(")\n");
             return;
@@ -1207,7 +1210,7 @@ public class Transpiler {
         if (!outerGlobal.isEmpty()) { indent(ind+1); emit("global " + String.join(", ", outerGlobal) + "\n"); }
         inFunction = true;
         localVars.clear(); localVars.addAll(pnames); localVars.addAll(outerLocal); localVars.addAll(outerGlobal);
-        emitBody(body, ind+1);
+        emitLoopBody(body, fresh, pnames, ind+1);
         inFunction = wi;
         localVars.clear(); localVars.addAll(wl);
     }
@@ -1252,7 +1255,7 @@ public class Transpiler {
         Set<String> wl = new LinkedHashSet<>(localVars);
         inFunction = true;
         localVars.clear(); localVars.addAll(own); localVars.addAll(outerLocal); localVars.addAll(outerGlobal);
-        emitBody(body, ind+1);
+        emitLoopBody(body, null, own, ind+1);
         inFunction = wi;
         localVars.clear(); localVars.addAll(wl);
     }
@@ -1361,6 +1364,98 @@ public class Transpiler {
         }
         if (e instanceof SExpr.Pair p) return new SExpr.Pair(substQQ(p.car(), m), substQQ(p.cdr(), m), p.line());
         return e;
+    }
+
+    // A define'd function starts a new Python function: no enclosing loop's tail calls apply.
+    private void emitDefine(SExpr f, int ind) throws SchemeException {
+        String tn = tcoName; List<String> tp = tcoParams;
+        tcoName = null; tcoParams = null;
+        try { emitDefine0(f, ind); } finally { tcoName = tn; tcoParams = tp; }
+    }
+
+    // Named-let body. If its last form calls the loop in tail position, the body becomes
+    // while True: ... and those calls become reassignment + continue (no Python recursion).
+    private void emitLoopBody(List<SExpr> body, String name, List<String> params, int ind) throws SchemeException {
+        String tn = tcoName; List<String> tp = tcoParams;
+        boolean loop = name != null && !body.isEmpty() && tailCalls(body.get(body.size() - 1), name);
+        tcoName = loop ? name : null; tcoParams = loop ? params : null;
+        try {
+            if (loop) {
+                indent(ind); emit("while True:\n");
+                emitBody(body, ind + 1);
+                indent(ind + 1); emit("return None\n");
+            } else emitBody(body, ind);
+        } finally { tcoName = tn; tcoParams = tp; }
+    }
+
+    private boolean tailCalls(SExpr e, String name) {
+        if (!(e instanceof SExpr.Pair p)) return false;
+        if (p.car() instanceof SExpr.Sym h && h.name().equals(name)) return true;
+        if (e.isForm("quote") || e.isForm("quasiquote")) return false;
+        List<SExpr> f = list(e);
+        if (e.isForm("if"))
+            return (f.size() > 2 && tailCalls(f.get(2), name)) || (f.size() > 3 && tailCalls(f.get(3), name));
+        if (e.isForm("cond")) {
+            for (SExpr c : f.subList(1, f.size())) {
+                List<SExpr> cc = list(c);
+                if (cc.size() >= 2 && !(cc.size() == 3 && cc.get(1).isSym("=>")) && tailCalls(cc.get(cc.size() - 1), name)) return true;
+            }
+            return false;
+        }
+        if (e.isForm("when") || e.isForm("unless") || e.isForm("begin"))
+            return f.size() > 1 && tailCalls(f.get(f.size() - 1), name);
+        if ((e.isForm("let") || e.isForm("let*") || e.isForm("letrec") || e.isForm("letrec*")) && !isNamedLetForm(e) && f.size() > 2) {
+            for (SExpr b : list(f.get(1))) if (b instanceof SExpr.Pair bp && bp.car().isSym(name)) return false;
+            return tailCalls(f.get(f.size() - 1), name);
+        }
+        return false;
+    }
+
+    // In a loop compiled to while True. Returns false to let emitBody's own tail paths
+    // (when/unless/let) handle the form; they recurse into emitBody and reach this again.
+    private boolean emitTailLoop(SExpr last, int ind, boolean noReturn) throws SchemeException {
+        if (last instanceof SExpr.Pair p && p.car() instanceof SExpr.Sym h && h.name().equals(tcoName)) {
+            List<SExpr> args = list(last).subList(1, list(last).size());
+            if (args.size() != tcoParams.size()) return false;
+            hoistLambdas(last, ind);
+            if (!args.isEmpty()) {
+                indent(ind); emit(String.join(", ", tcoParams) + " = ");
+                for (int k = 0; k < args.size(); k++) { if (k > 0) emit(", "); emitExpr(args.get(k), ind); }
+                emit("\n");
+            }
+            indent(ind); emit("continue\n");
+            return true;
+        }
+        if (!tailCalls(last, tcoName)) return false;
+        if (last.isForm("if")) {
+            List<SExpr> f = list(last);
+            hoistLambdas(f.get(1), ind);
+            indent(ind); emit("if "); emitTest(f.get(1), ind); emit(":\n");
+            emitBody(List.of(f.get(2)), ind + 1, noReturn);
+            if (f.size() > 3) { indent(ind); emit("else:\n"); emitBody(List.of(f.get(3)), ind + 1, noReturn); }
+            return true;
+        }
+        if (last.isForm("begin")) {
+            List<SExpr> f = list(last);
+            emitBody(f.subList(1, f.size()), ind, noReturn);
+            return true;
+        }
+        if (last.isForm("cond")) {
+            List<SExpr> cl = list(last).subList(1, list(last).size());
+            for (SExpr c : cl) { List<SExpr> cc = list(c); if (cc.size() < 2 || (cc.size() == 3 && cc.get(1).isSym("=>"))) return false; }
+            for (SExpr c : cl) { SExpr t = list(c).get(0); if (!t.isSym("else")) hoistLambdas(t, ind); }
+            boolean first = true;
+            for (SExpr c : cl) {
+                List<SExpr> cc = list(c);
+                indent(ind);
+                if (cc.get(0).isSym("else")) emit("else:\n");
+                else { emit(first ? "if " : "elif "); emitTest(cc.get(0), ind); emit(":\n"); }
+                emitBody(cc.subList(1, cc.size()), ind + 1, noReturn);
+                first = false;
+            }
+            return true;
+        }
+        return false;
     }
 
     private void emitBeginExpr(SExpr.Pair form, int ind) throws SchemeException {

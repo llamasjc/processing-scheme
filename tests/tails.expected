@@ -39,7 +39,13 @@ def tl13():
 
 def tl14():
     def loop(l, acc):
-        return (acc if is_null(l) else loop(cdr(l), (acc + car(l))))
+        while True:
+            if is_null(l):
+                return acc
+            else:
+                l, acc = cdr(l), (acc + car(l))
+                continue
+            return None
     return loop([1, 2, 3, 4], 0)
 
 def tl15():

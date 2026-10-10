@@ -3,37 +3,79 @@ xs = []
 def n1():
     global xs
     def loop_n1(i, acc):
-        return (list(reversed(acc)) if (i == 3) else loop_n1((i + 1), cons(i, acc)))
+        while True:
+            if (i == 3):
+                return list(reversed(acc))
+            else:
+                i, acc = (i + 1), cons(i, acc)
+                continue
+            return None
     xs = loop_n1(0, [])
     return xs
 
 def n2():
     def loop_n2(i):
-        return (loop_n2((i + 1)) if (i < 5) else i)
+        while True:
+            if (i < 5):
+                i = (i + 1)
+                continue
+            else:
+                return i
+            return None
     return (1 + loop_n2(0))
 
 def n3(x):
     if (x > 0):
         _display("p")
         def loop(i, s):
-            return (s if (i == 0) else loop((i - 1), (s + i)))
+            while True:
+                if (i == 0):
+                    return s
+                else:
+                    i, s = (i - 1), (s + i)
+                    continue
+                return None
         return loop(x, 0)
 
 def n4():
     def loop_n3(i):
-        return (_Sym("a") if (i == 2) else loop_n3((i + 1)))
+        while True:
+            if (i == 2):
+                return _Sym("a")
+            else:
+                i = (i + 1)
+                continue
+            return None
     def loop_n4(i):
-        return (_Sym("b") if (i == 3) else loop_n4((i + 1)))
+        while True:
+            if (i == 3):
+                return _Sym("b")
+            else:
+                i = (i + 1)
+                continue
+            return None
     return [loop_n3(0), loop_n4(0)]
 
 def loop_n5(i, acc):
-    return (acc if (i == 2) else loop_n5((i + 1), cons(i, acc)))
+    while True:
+        if (i == 2):
+            return acc
+        else:
+            i, acc = (i + 1), cons(i, acc)
+            continue
+        return None
 ys = loop_n5(0, [])
 
 def n5():
     def _lam1(n):
         def loop(i, s):
-            return (s if (i == 0) else loop((i - 1), (s + i)))
+            while True:
+                if (i == 0):
+                    return s
+                else:
+                    i, s = (i - 1), (s + i)
+                    continue
+                return None
         return loop(n, 0)
     return list(map(_lam1, [1, 2, 3]))
 

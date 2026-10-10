@@ -1,0 +1,98 @@
+def count_up(n):
+    def loop(i):
+        while True:
+            if (i < n):
+                i = (i + 1)
+                continue
+            else:
+                return i
+            return None
+    return loop(0)
+
+def _len(l):
+    return (0 if is_null(l) else (1 + _len(cdr(l))))
+
+def sum_acc(l):
+    def loop(l, acc):
+        while True:
+            if is_null(l):
+                return acc
+            else:
+                l, acc = cdr(l), (acc + car(l))
+                continue
+            return None
+    return loop(l, 0)
+
+def t1():
+    def loop(i, acc):
+        while True:
+            if (i == 3):
+                return list(reversed(acc))
+            else:
+                i, acc = (i + 1), cons(i, acc)
+                continue
+            return None
+    return loop(0, [])
+
+def t2(n):
+    def loop(i):
+        while True:
+            if (i == 0):
+                return _Sym("done")
+            else:
+                i = (i - 1)
+                continue
+            return None
+    return loop(n)
+
+def t3():
+    def loop(i):
+        while True:
+            j_l1 = (i + 1)
+            if (j_l1 < 100000):
+                i = j_l1
+                continue
+            else:
+                return j_l1
+            return None
+    return loop(0)
+
+def t4():
+    def loop(i, s):
+        while True:
+            if (i < 5):
+                s = (s + i)
+            if (i < 5):
+                i, s = (i + 1), s
+                continue
+            else:
+                return s
+            return None
+    return loop(0, 0)
+
+def t5():
+    def loop(a, b, n):
+        while True:
+            if (n == 1):
+                return [a, b]
+            else:
+                a, b, n = b, a, (n + 1)
+                continue
+            return None
+    return loop(1, 2, 0)
+
+def t6():
+    def loop(i):
+        while True:
+            if (i < 3):
+                _display(i)
+                i = (i + 1)
+                continue
+            else:
+                return _Sym("end")
+            return None
+    return loop(0)
+
+
+_scm_wrap(globals())
+run()

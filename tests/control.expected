@@ -30,7 +30,13 @@ def c6():
 
 def c7():
     def loop(i, acc):
-        return (list(reversed(acc)) if (i == 3) else loop((i + 1), cons((i * i), acc)))
+        while True:
+            if (i == 3):
+                return list(reversed(acc))
+            else:
+                i, acc = (i + 1), cons((i * i), acc)
+                continue
+            return None
     return loop(0, [])
 
 def c8(x):

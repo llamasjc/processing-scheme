@@ -1,22 +1,37 @@
 def draw():
     def loop(i):
-        if (i < 3):
-            ellipse(i, 0, 1, 1)
-            return loop((i + 1))
+        while True:
+            if (i < 3):
+                ellipse(i, 0, 1, 1)
+                i = (i + 1)
+                continue
+            return None
     loop(0)
     fill(255)
     rect(0, 0, 1, 1)
 
 def sum_to(n):
     def loop(i, acc):
-        return (acc if (i > n) else loop((i + 1), (acc + i)))
+        while True:
+            if (i > n):
+                return acc
+            else:
+                i, acc = (i + 1), (acc + i)
+                continue
+            return None
     return loop(0, 0)
 
 def classify(x):
     if (x > 0):
         if (x > 100):
             def loop(i):
-                return (i if (i < 100) else loop((i - 10)))
+                while True:
+                    if (i < 100):
+                        return i
+                    else:
+                        i = (i - 10)
+                        continue
+                    return None
             return loop(x)
         else:
             return _Sym("small")

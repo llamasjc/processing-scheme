@@ -18,9 +18,11 @@ JAVA
   javac -cp "$CP" -d "$TXD" "$TXD/Tx.java" || exit 1
 fi
 fail=0
+FULL=$(mktemp /tmp/regress_full.XXXXXX.py)
+trap 'rm -f "$FULL"' EXIT
 for t in tests/*.scm; do
   full=$(java -cp "$TXD:$CP" Tx < "$t" 2>&1 | grep -v '^NOTE: Picked up JDK_JAVA_OPTIONS')
-  printf '%s\n' "$full" > /tmp/regress_full.py
+  printf '%s\n' "$full" > "$FULL"
   out=$(printf '%s\n' "$full" | grep -v '# scm' | sed '1,/^# -- sketch --$/d')
   exp="${t%.scm}.expected"
   if [ "$1" = "--update" ]; then
@@ -31,8 +33,8 @@ for t in tests/*.scm; do
     echo "ok   $t"
   fi
   [ "$1" = "--update" ] && continue
-  u=$(python3 scripts/undefined.py /tmp/regress_full.py)
+  u=$(python3 scripts/undefined.py "$FULL")
   [ "$u" = "undefined: (none)" ] || { echo "  $u"; fail=1; }
-  python3 scripts/runcheck.py "$t" /tmp/regress_full.py || { echo "FAIL $t (values)"; fail=1; }
+  python3 scripts/runcheck.py "$t" "$FULL" || { echo "FAIL $t (values)"; fail=1; }
 done
 exit $fail
