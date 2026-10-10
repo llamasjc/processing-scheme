@@ -386,6 +386,36 @@ public class Transpiler {
              + "        raise _SchemeError('string-ref: index ' + _show(i) + ' out of range for a string of length ' + str(len(s)))\n"
              + "    return s[i]\n"
              + "\n");
+        emit("_add = lambda *a: _ft.reduce(_op.add, a, 0)\n"
+             + "_mul = lambda *a: _ft.reduce(_op.mul, a, 1)\n"
+             + "def char_upcase(c): return c.upper()\n"
+             + "def char_downcase(c): return c.lower()\n"
+             + "def set_car(p, v):\n"
+             + "    if isinstance(p, _Pair): p.car = v\n"
+             + "    elif isinstance(p, _SEQ) and len(p): p[0] = v\n"
+             + "    else: _bad('set-car!', 'a pair', p)\n"
+             + "def set_cdr(p, v):\n"
+             + "    if isinstance(p, _Pair): p.cdr = v\n"
+             + "    elif isinstance(p, list) and p: p[1:] = list(v)\n"
+             + "    elif isinstance(p, _Tail) and len(p): p.b[p.s + 1:] = list(v)\n"
+             + "    else: _bad('set-cdr!', 'a pair', p)\n"
+             + "def vector_map(f, *vs): return [f(*a) for a in zip(*vs)]\n"
+             + "def vector_for_each(f, *vs):\n"
+             + "    for a in zip(*vs): f(*a)\n"
+             + "def values(*a): return a[0] if len(a) == 1 else a\n"
+             + "def call_with_values(producer, consumer):\n"
+             + "    r = producer()\n"
+             + "    return consumer(*r) if isinstance(r, tuple) else consumer(r)\n"
+             + "\n");
+        emit("def _div(a, *r):\n"
+             + "    if not r: a, r = 1, (a,)\n"
+             + "    for b in r:\n"
+             + "        if type(a) is int and type(b) is int and b != 0 and a % b == 0: a = a // b\n"
+             + "        else: a = a / b\n"
+             + "    return a\n"
+             + "def _chain(op): return lambda *a: all(op(x, y) for x, y in zip(a, a[1:]))\n"
+             + "_lt = _chain(_op.lt); _gt = _chain(_op.gt); _le = _chain(_op.le); _ge = _chain(_op.ge); _eq = _chain(_op.eq)\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
@@ -816,7 +846,7 @@ public class Transpiler {
         List<SExpr> body = new ArrayList<>(parts.subList(2, parts.size()));
         boolean star = e.isForm("let*"), rec = e.isForm("letrec") || e.isForm("letrec*");
         List<String> olds = new ArrayList<>(), news = new ArrayList<>();
-        for (SExpr b : bindings) { String n = sym(list(b).get(0)); olds.add(n); news.add(n + "__l" + (++letN)); }
+        for (SExpr b : bindings) { String n = sym(list(b).get(0)); olds.add(n); news.add(freshName(n, "__l" + (++letN))); }
         java.util.Map<String, String> full = new java.util.HashMap<>();
         for (int k = 0; k < olds.size(); k++) full.put(olds.get(k), news.get(k));
         for (int i = 0; i < bindings.size(); i++) {
@@ -975,7 +1005,7 @@ public class Transpiler {
             case "integer->char" -> { emit("chr("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "string->list"  -> { emit("list("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "list->string"  -> { emit("''.join("); emitExpr(args.get(0),ind); emit(")"); return; }
-            case "string-append" -> { emitBinOp(args, " + ", ind); return; }
+            case "string-append" -> { if (args.isEmpty()) emit("\"\""); else emitBinOp(args, " + ", ind); return; }
             case "substring"  -> { emitExpr(args.get(0),ind); emit("["); emitExpr(args.get(1),ind); emit(":"); if(args.size()>2) emitExpr(args.get(2),ind); emit("]"); return; }
             case "string-ref" -> { emit("string_ref("); emitExpr(args.get(0),ind); emit(", "); emitExpr(args.get(1),ind); emit(")"); return; }
             case "string-upcase"  -> { emitExpr(args.get(0),ind); emit(".upper()"); return; }
@@ -1081,7 +1111,7 @@ public class Transpiler {
         if (hoistedLets.containsKey(form)) return;
         List<SExpr> ps = list(form);
         String orig = sym(ps.get(1));
-        String fresh = orig + "__n" + (++letN);
+        String fresh = freshName(orig, "__n" + (++letN));
         List<SExpr> bindings = list(ps.get(2));
         List<String> pnames = new ArrayList<>();
         java.util.Set<String> praw = new java.util.HashSet<>();
@@ -1175,6 +1205,15 @@ public class Transpiler {
         emit("(("); emitExpr(t, ind); emit(") is not False)");
     }
 
+
+    // A fresh variant of a Scheme name: the tag goes before trailing punctuation, so names
+    // like ev? or set-x! still map to valid Python after snake-casing (ev__l3? -> ev_l3_p).
+    static String freshName(String n, String tag) {
+        int e = n.length();
+        while (e > 0 && !Character.isLetterOrDigit(n.charAt(e - 1))) e--;
+        if (e == 0) return n + tag;
+        return n.substring(0, e) + tag + n.substring(e);
+    }
 
     private static SExpr chainOf(List<SExpr> xs, SExpr tail, int line) {
         SExpr r = tail;
@@ -1376,7 +1415,7 @@ public class Transpiler {
             case "+" -> { if(args.size()==1){sb.append("(+");apE(sb,args.get(0),ind);sb.append(")");} else { sb.append("("); apE(sb,args.get(0),ind); for(int i=1;i<args.size();i++){sb.append(" + ");apE(sb,args.get(i),ind);} sb.append(")"); } return sb.toString(); }
             case "-" -> { if(args.size()==1){sb.append("(-");apE(sb,args.get(0),ind);sb.append(")");} else {sb.append("(");apE(sb,args.get(0),ind);for(int i=1;i<args.size();i++){sb.append(" - ");apE(sb,args.get(i),ind);}sb.append(")");} return sb.toString(); }
             case "*" -> { sb.append("("); apE(sb,args.get(0),ind); for(int i=1;i<args.size();i++){sb.append(" * ");apE(sb,args.get(i),ind);} sb.append(")"); return sb.toString(); }
-            case "/" -> { if(args.size()==1){sb.append("(1/");apE(sb,args.get(0),ind);sb.append(")");} else {sb.append("(");apE(sb,args.get(0),ind);for(int i=1;i<args.size();i++){sb.append(" / ");apE(sb,args.get(i),ind);}sb.append(")");} return sb.toString(); }
+            case "/" -> { sb.append("_div("); apAll(sb, args, ind); sb.append(")"); return sb.toString(); }
             case "quotient","truncate-quotient" -> { sb.append("_quot("); apE(sb,args.get(0),ind); sb.append(", "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
             case "floor-quotient" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" // "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
             case "remainder","truncate-remainder" -> { sb.append("_rem("); apE(sb,args.get(0),ind); sb.append(", "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
@@ -1413,7 +1452,7 @@ public class Transpiler {
     private String cmpOp(String n, List<SExpr> args, int ind) throws SchemeException {
         StringBuilder sb = new StringBuilder();
         switch (n) {
-            case "=","equal-number?" -> { sb.append("("); apE(sb,args.get(0),ind); sb.append(" == "); apE(sb,args.get(1),ind); sb.append(")"); return sb.toString(); }
+            case "=","equal-number?" -> { sb.append("("); for (int k = 0; k < args.size(); k++) { if (k > 0) sb.append(" == "); apE(sb,args.get(k),ind); } sb.append(")"); return sb.toString(); }
             case "<"  -> { return chain(args, " < ",  ind); }
             case ">"  -> { return chain(args, " > ",  ind); }
             case "<=" -> { return chain(args, " <= ", ind); }
@@ -1514,10 +1553,10 @@ public class Transpiler {
             if (hasSplice) {
                 emit("(");
                 for (SExpr item : items) {
-                    if (item.isForm("unquote-splicing")) { emitExpr(nth(item,1), ind); }
+                    if (item.isForm("unquote-splicing")) { emit("list("); emitExpr(nth(item,1), ind); emit(") + "); }
                     else { emit("["); emitQQ(item, ind); emit("] + "); }
                 }
-                emit("[])\n");
+                emit("[])");
             } else {
                 emit("["); for(int i=0;i<items.size();i++){if(i>0)emit(", ");emitQQ(items.get(i),ind);} emit("]");
             }

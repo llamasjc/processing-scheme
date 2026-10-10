@@ -15,7 +15,21 @@ public class MacroExpander {
     private final Map<String, Macro> macros = new LinkedHashMap<>();
 
     /** Collect macros and expand all forms. */
+    // Built-in derived forms, written as ordinary syntax-rules. Collected before the
+    // sketch's own macros, so a sketch can still define its own version.
+    private static final String PRELUDE = """
+        (define-syntax let-values
+          (syntax-rules ()
+            ((_ () body ...) ((lambda () body ...)))
+            ((_ ((formals expr) rest ...) body ...)
+             (call-with-values (lambda () expr) (lambda formals (let-values (rest ...) body ...))))))
+        (define-syntax let*-values
+          (syntax-rules ()
+            ((_ clauses body ...) (let-values clauses body ...))))
+        """;
+
     public List<SExpr> expand(List<SExpr> forms) throws SchemeException {
+        for (SExpr f : Parser.read(PRELUDE)) collectMacro(f);
         // First pass: collect define-syntax
         for (SExpr f : forms) {
             if (f.isForm("define-syntax")) {
@@ -90,7 +104,7 @@ public class MacroExpander {
                 collectBinders(tmpl, introduced);
                 for (String n : introduced)
                     if (!bindings.containsKey(n) && !ellipsisBindings.containsKey(n) && !n.equals("...") && !n.equals("_"))
-                        bindings.put(n, new SExpr.Sym(n + "__h" + (++gensym), line));
+                        bindings.put(n, new SExpr.Sym(Transpiler.freshName(n, "__h" + (++gensym)), line));
                 return expandTemplate(tmpl, bindings, ellipsisBindings, line);
             }
         }

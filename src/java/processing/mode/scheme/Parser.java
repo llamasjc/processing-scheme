@@ -18,6 +18,11 @@ public class Parser {
         return new AlphaRename(SpecialNames.ALL).run(new MacroExpander().expand(forms));
     }
 
+    /** Parse without macro expansion or renaming (used for the built-in macro prelude). */
+    static List<SExpr> read(String source) throws SchemeException {
+        return new Parser(new Tokenizer(source).tokenizeAll()).parseAll();
+    }
+
     private List<SExpr> parseAll() throws SchemeException {
         List<SExpr> forms = new ArrayList<>();
         while (peek().type != Tokenizer.TT.EOF) {

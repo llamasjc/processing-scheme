@@ -1,0 +1,122 @@
+def make_counter():
+    n_l1 = 0
+    def _lam1():
+        nonlocal n_l1
+        n_l1 = (n_l1 + 1)
+        return n_l1
+    return _lam1
+
+def m1():
+    c_l2 = make_counter()
+    c_l2()
+    c_l2()
+    return c_l2()
+
+def m2():
+    return _div(6, 3)
+
+def _sum(*xs):
+    return _add(*(xs))
+
+def m4():
+    return _sum(1, 2, 3)
+
+def m5():
+    return _sum()
+
+def m6():
+    return (1 + 2 + 3 + 4)
+
+def m7():
+    return _mul()
+
+def m8(x):
+    y = (x * 2)
+    def h(z):
+        return (y + z)
+    return h(1)
+
+def m9():
+    ev_l3_p = (lambda n: (True if (n == 0) else od_l4_p((n - 1))))
+    od_l4_p = (lambda n: (False if (n == 0) else ev_l3_p((n - 1))))
+    return ev_l3_p(10)
+
+def m10():
+    l_l5 = [1, 2, 3]
+    set_car(l_l5, 9)
+    return l_l5
+
+def m11():
+    return ''.join(['a', 'b'])
+
+def m13():
+    return char_upcase('a')
+
+def m16():
+    return max(1, 2.5)
+
+def m18():
+    return ""
+
+def m19():
+    return vector_map((lambda x: (x * x)), [1, 2, 3])
+
+def m20():
+    acc_l6 = 0
+    def _lam2(x):
+        nonlocal acc_l6
+        acc_l6 = (acc_l6 + x)
+    vector_for_each(_lam2, [1, 2, 3])
+    return acc_l6
+
+def m21():
+    return next((_p for _p in [["a", 1], ["b", 2]] if _p[0] == "b"), False)
+
+def m22():
+    return call_with_values((lambda : (1, 2)), (lambda a, b: ((lambda : (a + b)))()))
+
+def m23():
+    return ([1] + list([2, 3]) + [4] + [])
+
+def m24():
+    return int(_math.floor(2.5))
+
+def m26():
+    return (2 ** -1)
+
+def m27():
+    return "a" == "a"
+
+def m28():
+    return (1 < 2 < 3)
+
+def m29():
+    return (1 == 1 == 2)
+
+def m30():
+    return (-5)
+
+def m32():
+    return len([])
+
+def m33():
+    return _max(*([1] + list([5, 3])))
+
+def m34():
+    return _div(7, 2)
+
+def m35():
+    return _div(2)
+
+def m36():
+    return _lt(*([1, 2, 3]))
+
+def m37():
+    return _eq(*([1, 1, 2]))
+
+def m38():
+    return _div(*([12, 2, 3]))
+
+
+_scm_wrap(globals())
+run()
