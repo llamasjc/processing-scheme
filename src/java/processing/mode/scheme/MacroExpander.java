@@ -26,6 +26,9 @@ public class MacroExpander {
         (define-syntax let*-values
           (syntax-rules ()
             ((_ clauses body ...) (let-values clauses body ...))))
+        (define-syntax call/cc
+          (syntax-rules ()
+            ((_ f) (call-with-current-continuation f))))
         """;
 
     public List<SExpr> expand(List<SExpr> forms) throws SchemeException {

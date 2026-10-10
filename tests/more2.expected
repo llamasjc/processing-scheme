@@ -1,0 +1,89 @@
+def q2():
+    return fold(_add, 0, [1, 2, 3])
+
+def q3():
+    return list(filter(odd_p, [1, 2, 3, 4, 5]))
+
+def q4():
+    return reduce(_add, 0, [1, 2, 3])
+
+def q5():
+    return list(range(5))
+
+def q6():
+    return list_sort(_lt, [3, 1, 2])
+
+def q6b():
+    return list_sort([3, 1, 2], _lt)
+
+def q7():
+    return string_map(char_upcase, "abc")
+
+def q8():
+    n_l1 = 0
+    def _lam1(c):
+        nonlocal n_l1
+        n_l1 = (n_l1 + 1)
+    string_for_each(_lam1, "abcd")
+    return n_l1
+
+def q9():
+    try:
+        return _err("bad thing", 42)
+    except Exception as e:
+        e = _unwrap(e)
+        if error_object_p(e):
+            return error_object_message(e)
+        raise
+
+def q9b():
+    try:
+        return _err("bad thing", 42)
+    except Exception as e:
+        e = _unwrap(e)
+        if error_object_p(e):
+            return error_object_irritants(e)
+        raise
+
+def q10():
+    return call_with_current_continuation((lambda k: (1 + k(42))))
+
+def q11():
+    return with_exception_handler((lambda e: 10), (lambda : (1 + raise_continuable(_Sym("oops")))))
+
+def q12():
+    return square(5)
+
+def q13():
+    return exact_integer_p(5)
+
+def q15():
+    return next((_p for _p in [[_Sym("a"), 1], [_Sym("b"), 2]] if _p[0] == _Sym("c")), False)
+
+def q17():
+    return string_copy("abc", 1)
+
+def q19():
+    return number_to_string(2.5)
+
+def q23():
+    return dynamic_wind((lambda : False), (lambda : 5), (lambda : False))
+
+def q24():
+    return digit_value('7')
+
+def q26():
+    return ([1, 2, 3])[3:]
+
+def q27():
+    return isinstance([], bool)
+
+def q28():
+    return int(round(2.5))
+
+def q29():
+    return int(round(3.5))
+
+
+_scm_wrap(globals())
+run()
