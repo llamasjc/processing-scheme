@@ -489,6 +489,116 @@ public class Transpiler {
              + "    return sorted(lst, key=_ft.cmp_to_key(lambda x, y: -1 if less(x, y) else (1 if less(y, x) else 0)))\n"
              + "def list_sort(a, b): return _sort_by(b, a) if callable(a) else _sort_by(a, b)\n"
              + "\n");
+        emit("def _vals(r): return r if isinstance(r, tuple) else (r,)\n"
+             + "_np = list(range(256)); _random.Random(0).shuffle(_np); _np = _np + _np\n"
+             + "_noise_oct = 4; _noise_fall = 0.5\n"
+             + "_noise_off = (0.31, 0.57, 0.83, 0.19, 0.71, 0.43, 0.97, 0.13)\n"
+             + "def _fade(t): return t * t * t * (t * (t * 6 - 15) + 10)\n"
+             + "def _grad(h, x, y, z):\n"
+             + "    h &= 15\n"
+             + "    u = x if h < 8 else y\n"
+             + "    v = y if h < 4 else (x if h in (12, 14) else z)\n"
+             + "    return (u if (h & 1) == 0 else -u) + (v if (h & 2) == 0 else -v)\n"
+             + "def _perlin(x, y, z):\n"
+             + "    fx, fy, fz = _math.floor(x), _math.floor(y), _math.floor(z)\n"
+             + "    X, Y, Z = int(fx) & 255, int(fy) & 255, int(fz) & 255\n"
+             + "    x, y, z = x - fx, y - fy, z - fz\n"
+             + "    u, v, w = _fade(x), _fade(y), _fade(z)\n"
+             + "    p = _np\n"
+             + "    A = p[X] + Y; AA = p[A] + Z; AB = p[A + 1] + Z\n"
+             + "    B = p[X + 1] + Y; BA = p[B] + Z; BB = p[B + 1] + Z\n"
+             + "    def L(t, a, b): return a + t * (b - a)\n"
+             + "    return L(w, L(v, L(u, _grad(p[AA], x, y, z), _grad(p[BA], x - 1, y, z)),\n"
+             + "                     L(u, _grad(p[AB], x, y - 1, z), _grad(p[BB], x - 1, y - 1, z))),\n"
+             + "                L(v, L(u, _grad(p[AA + 1], x, y, z - 1), _grad(p[BA + 1], x - 1, y, z - 1)),\n"
+             + "                     L(u, _grad(p[AB + 1], x, y - 1, z - 1), _grad(p[BB + 1], x - 1, y - 1, z - 1))))\n"
+             + "def noise(x, y=0.0, z=0.0):\n"
+             + "    tot = 0.0; amp = 0.5; f = 1.0; norm = 0.0\n"
+             + "    for k in range(_noise_oct):\n"
+             + "        o = _noise_off[k % 8]\n"
+             + "        tot += amp * (_perlin(x * f + o, y * f + o, z * f + o) * 0.5 + 0.5)\n"
+             + "        norm += amp; amp *= _noise_fall; f *= 2\n"
+             + "    return min(1.0, max(0.0, tot / norm))\n"
+             + "def noise_detail(lod, falloff=None):\n"
+             + "    global _noise_oct, _noise_fall\n"
+             + "    _noise_oct = max(1, int(lod))\n"
+             + "    if falloff is not None: _noise_fall = falloff\n"
+             + "def noise_seed(seed):\n"
+             + "    global _np\n"
+             + "    q = list(range(256)); _random.Random(seed).shuffle(q); _np = q + q\n"
+             + "class _OutPort:\n"
+             + "    def __init__(s): s.buf = []\n"
+             + "    def write(s, t): s.buf.append(t)\n"
+             + "class _InPort:\n"
+             + "    def __init__(s, t): s.t = t; s.i = 0\n"
+             + "class _EofObject:\n"
+             + "    def __repr__(s): return '#<eof>'\n"
+             + "_eof = _EofObject()\n"
+             + "def eof_object(): return _eof\n"
+             + "def eof_object_p(x): return x is _eof\n"
+             + "def open_output_string(): return _OutPort()\n"
+             + "def get_output_string(p): return ''.join(p.buf)\n"
+             + "def open_input_string(t): return _InPort(t)\n"
+             + "def current_output_port(): return None\n"
+             + "def _emit_to(s, port):\n"
+             + "    if port is None: print(s, end='')\n"
+             + "    else: port.write(s)\n"
+             + "def _display(x, port=None): _emit_to(_show(x), port)\n"
+             + "def write(x, port=None): _emit_to(_show(x, True), port)\n"
+             + "def _newline(port=None): _emit_to(chr(10), port)\n"
+             + "def write_string(s, port=None): _emit_to(s, port)\n"
+             + "def write_char(c, port=None): _emit_to(c, port)\n"
+             + "def flush_output_port(port=None): _sys.stdout.flush()\n"
+             + "def read_char(p):\n"
+             + "    if p.i >= len(p.t): return _eof\n"
+             + "    c = p.t[p.i]; p.i += 1; return c\n"
+             + "def peek_char(p): return _eof if p.i >= len(p.t) else p.t[p.i]\n"
+             + "def read_line(p):\n"
+             + "    if p.i >= len(p.t): return _eof\n"
+             + "    j = p.t.find(chr(10), p.i)\n"
+             + "    if j < 0: j = len(p.t)\n"
+             + "    line = p.t[p.i:j]; p.i = j + 1; return line\n"
+             + "def read_string(k, p):\n"
+             + "    if p.i >= len(p.t): return _eof\n"
+             + "    r = p.t[p.i:p.i + k]; p.i += len(r); return r\n"
+             + "def with_output_to_string(thunk):\n"
+             + "    import io, contextlib\n"
+             + "    buf = io.StringIO()\n"
+             + "    with contextlib.redirect_stdout(buf): thunk()\n"
+             + "    return buf.getvalue()\n"
+             + "def call_with_output_string(proc):\n"
+             + "    p = _OutPort(); proc(p); return ''.join(p.buf)\n"
+             + "def _hkey(k): return tuple(_hkey(x) for x in k) if isinstance(k, _SEQ) else k\n"
+             + "def make_hash_table(*a): return {}\n"
+             + "make_equal_hash_table = make_hash_table; make_strong_eqv_hash_table = make_hash_table; make_eqv_hash_table = make_hash_table\n"
+             + "def hash_table_p(h): return isinstance(h, dict)\n"
+             + "def hash_table_set(h, k, v): h[_hkey(k)] = v\n"
+             + "def hash_table_ref(h, k, fail=None, succeed=None):\n"
+             + "    kk = _hkey(k)\n"
+             + "    if kk in h: return succeed(h[kk]) if succeed else h[kk]\n"
+             + "    if fail: return fail()\n"
+             + "    raise _SchemeError('hash-table-ref: no value for key ' + _show(k, True))\n"
+             + "def hash_table_ref_default(h, k, d): return h.get(_hkey(k), d)\n"
+             + "def hash_table_delete(h, k): h.pop(_hkey(k), None)\n"
+             + "def hash_table_contains_p(h, k): return _hkey(k) in h\n"
+             + "hash_table_exists_p = hash_table_contains_p\n"
+             + "def hash_table_count(h): return len(h)\n"
+             + "hash_table_size = hash_table_count\n"
+             + "def hash_table_keys(h): return list(h.keys())\n"
+             + "def hash_table_values(h): return list(h.values())\n"
+             + "def hash_table_to_alist(h): return [[k, v] for k, v in h.items()]\n"
+             + "def hash_table_update(h, k, f, fail=None):\n"
+             + "    kk = _hkey(k)\n"
+             + "    if kk in h: h[kk] = f(h[kk])\n"
+             + "    elif fail: h[kk] = f(fail())\n"
+             + "    else: raise _SchemeError('hash-table-update!: no value for key ' + _show(k, True))\n"
+             + "def hash_table_update_default(h, k, f, d):\n"
+             + "    kk = _hkey(k); h[kk] = f(h.get(kk, d))\n"
+             + "def hash_table_walk(h, f):\n"
+             + "    for k, v in list(h.items()): f(k, v)\n"
+             + "def hash_table_copy(h, *a): return dict(h)\n"
+             + "def hash_table_clear(h): h.clear()\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
@@ -657,6 +767,15 @@ public class Transpiler {
 
     private void emitStmt(SExpr e, int ind) throws SchemeException {
         hoistLambdas(e, ind);
+        if (e.isForm("define-values")) {
+            List<SExpr> dv = list(e);
+            List<String> names = new ArrayList<>();
+            for (SExpr v : list(dv.get(1))) names.add(snakeBind(sym(v)));
+            for (String nm : names) { if (inFunction) localVars.add(nm); else globalVars.add(nm); }
+            indent(ind); emit(String.join(", ", names) + (names.size() == 1 ? "," : "") + " = _vals(");
+            emitExpr(dv.get(2), ind); emit(")\n");
+            return;
+        }
         if (e instanceof SExpr.Nil) { indent(ind); emit("pass\n"); return; }
         if (e.isForm("define"))           { emitDefine(e, ind); return; }
         if (e.isForm("define-record-type")){ emitRecordType(e); return; }
@@ -673,9 +792,9 @@ public class Transpiler {
         if (e.isForm("do"))               { emitDo(e, ind); return; }
         if (e.isForm("for-each"))         { emitForEach(e, ind); return; }
         if (e.isForm("with-matrix"))      { emitWithMatrix(e, ind); return; }
-        if (e.isForm("display"))          { indent(ind); emit("_display("); emitExpr(nth(e,1), ind); emit(")\n"); return; }
-        if (e.isForm("newline"))          { indent(ind); emit("print()\n"); return; }
-        if (e.isForm("write"))            { indent(ind); emit("write("); emitExpr(nth(e,1),ind); emit(")\n"); return; }
+        if (e.isForm("display"))          { indent(ind); emit("_display("); emitArgs(list(e).subList(1, list(e).size()), ind); emit(")\n"); return; }
+        if (e.isForm("newline"))          { indent(ind); if (list(e).size() > 1) { emit("_newline("); emitExpr(nth(e,1), ind); emit(")\n"); } else emit("print()\n"); return; }
+        if (e.isForm("write"))            { indent(ind); emit("write("); emitArgs(list(e).subList(1, list(e).size()), ind); emit(")\n"); return; }
         if (e.isForm("define-syntax") || e.isForm("let-syntax")) { indent(ind); emit("pass  # syntax\n"); return; }
         indent(ind); emitExpr(e, ind); emit("\n");
     }
@@ -1070,8 +1189,8 @@ public class Transpiler {
             case "fold-left","foldl" -> { emit("__import__('functools').reduce("); emitExpr(args.get(0),ind); emit(", "); emitExpr(args.get(2),ind); emit(", "); emitExpr(args.get(1),ind); emit(")"); return; }
             case "error"      -> { emit("_err("); emitArgs(args,ind); emit(")"); return; }
             case "void"       -> { emit("None"); return; }
-            case "display"    -> { emit("_display("); emitExpr(args.get(0),ind); emit(")"); return; }
-            case "newline"    -> { emit("print()"); return; }
+            case "display"    -> { emit("_display("); emitArgs(args,ind); emit(")"); return; }
+            case "newline"    -> { if (!args.isEmpty()) { emit("_newline("); emitExpr(args.get(0),ind); emit(")"); } else emit("print()"); return; }
             case "symbol->string" -> { emit("str("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "exact->inexact","inexact" -> { emit("float("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "inexact->exact","exact","floor->exact","truncate->exact" -> { emit("int("); emitExpr(args.get(0),ind); emit(")"); return; }

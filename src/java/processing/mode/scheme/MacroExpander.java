@@ -29,6 +29,10 @@ public class MacroExpander {
         (define-syntax call/cc
           (syntax-rules ()
             ((_ f) (call-with-current-continuation f))))
+        (define-syntax hash-table-ref/default
+          (syntax-rules () ((_ . args) (hash-table-ref-default . args))))
+        (define-syntax hash-table-update!/default
+          (syntax-rules () ((_ . args) (hash-table-update-default! . args))))
         """;
 
     public List<SExpr> expand(List<SExpr> forms) throws SchemeException {
