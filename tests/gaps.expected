@@ -1,0 +1,43 @@
+def p1():
+    p_l1 = open_output_string()
+    _display("a", p_l1)
+    write("b", p_l1)
+    _newline(p_l1)
+    return get_output_string(p_l1)
+
+def p2():
+    return with_output_to_string((lambda : _display(42)))
+
+def p3():
+    p_l2 = open_input_string("hi\nyo")
+    return [read_char(p_l2), peek_char(p_l2), read_line(p_l2), read_line(p_l2), eof_object_p(read_char(p_l2))]
+
+ht = make_hash_table()
+
+def h1():
+    hash_table_set(ht, _Sym("a"), 1)
+    hash_table_set(ht, _Sym("b"), 2)
+    return hash_table_ref_default(ht, _Sym("a"), 0)
+
+def h2():
+    return hash_table_ref_default(ht, _Sym("zz"), _Sym("none"))
+
+def h3():
+    hash_table_update_default(ht, _Sym("a"), (lambda v: (v + 10)), 0)
+    return hash_table_ref(ht, _Sym("a"))
+
+def h4():
+    return hash_table_count(ht)
+
+def h5():
+    return hash_table_contains_p(ht, _Sym("b"))
+
+dv1, dv2 = _vals((7, 8))
+
+def d1():
+    x, y = _vals((1, 2))
+    return (x + y)
+
+
+_scm_wrap(globals())
+run()
