@@ -1,0 +1,42 @@
+def c1():
+    return char_p(_Char('a'))
+
+def c2():
+    return char_p("a")
+
+def c3():
+    return string_p(_Char('a'))
+
+def c4():
+    return string_ref("abc", 1)
+
+def c5():
+    return char_p(string_ref("abc", 1))
+
+def c6():
+    return ''.join(list("hey"))
+
+def c7():
+    return char_upcase(_Char('a'))
+
+def c8():
+    return char_p(char_upcase(_Char('a')))
+
+def c9():
+    return ord(_Char('A'))
+
+def c10():
+    return _Char('a')
+
+def c11():
+    return char_eq__p(_Char('a'), string_ref("a", 0))
+
+def c12():
+    return (1 if (_c1 := _Char('b')) in (_Char('a'),) else 2 if _c1 in (_Char('b'),) else 3)
+
+def c13():
+    return [_Char('x'), _Char(' ')]
+
+
+_scm_wrap(globals())
+run()

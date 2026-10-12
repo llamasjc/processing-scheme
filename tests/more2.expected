@@ -70,7 +70,7 @@ def q23():
     return dynamic_wind((lambda : False), (lambda : 5), (lambda : False))
 
 def q24():
-    return digit_value('7')
+    return digit_value(_Char('7'))
 
 def q26():
     return ([1, 2, 3])[3:]

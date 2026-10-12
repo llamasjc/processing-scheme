@@ -599,6 +599,43 @@ public class Transpiler {
              + "def hash_table_copy(h, *a): return dict(h)\n"
              + "def hash_table_clear(h): h.clear()\n"
              + "\n");
+        emit("class _Char(str):\n"
+             + "    __slots__ = ()\n"
+             + "    def __repr__(s): return _show(s, True)\n"
+             + "_CHAR_NAMES = {' ': 'space', chr(10): 'newline', chr(9): 'tab', chr(13): 'return', chr(0): 'null'}\n"
+             + "def char_p(x): return isinstance(x, _Char)\n"
+             + "def string_p(n): return isinstance(n, str) and not isinstance(n, (_Sym, _Char))\n"
+             + "_show_base = _show\n"
+             + "def _show(x, w=False):\n"
+             + "    if isinstance(x, _Char):\n"
+             + "        return '#' + chr(92) + _CHAR_NAMES.get(str.__str__(x), str.__str__(x)) if w else str.__str__(x)\n"
+             + "    if isinstance(x, _SEQ + (_Pair,)) and not isinstance(x, str):\n"
+             + "        items = []\n"
+             + "        while isinstance(x, _Pair): items.append(_show(x.car, w)); x = x.cdr\n"
+             + "        if isinstance(x, _SEQ): return '(' + ' '.join(items + [_show(y, w) for y in x]) + ')'\n"
+             + "        return '(' + ' '.join(items) + ' . ' + _show(x, w) + ')'\n"
+             + "    return _show_base(x, w)\n"
+             + "def string_ref(s, i):\n"
+             + "    if not isinstance(s, str): _bad('string-ref', 'a string', s)\n"
+             + "    if not (isinstance(i, int) and 0 <= i < len(s)):\n"
+             + "        raise _SchemeError('string-ref: index ' + _show(i) + ' out of range for a string of length ' + str(len(s)))\n"
+             + "    return _Char(s[i])\n"
+             + "def string_to_list(s, start=0, end=None): return [_Char(c) for c in s[start:end]]\n"
+             + "def integer_to_char(n): return _Char(chr(n))\n"
+             + "def char_upcase(c): return _Char(c.upper())\n"
+             + "def char_downcase(c): return _Char(c.lower())\n"
+             + "def string_map(f, *ss): return ''.join(f(*[_Char(c) for c in a]) for a in zip(*ss))\n"
+             + "def string_for_each(f, *ss):\n"
+             + "    for a in zip(*ss): f(*[_Char(c) for c in a])\n"
+             + "_read_char_base = read_char\n"
+             + "_peek_char_base = peek_char\n"
+             + "def read_char(p):\n"
+             + "    c = _read_char_base(p)\n"
+             + "    return _Char(c) if isinstance(c, str) else c\n"
+             + "def peek_char(p):\n"
+             + "    c = _peek_char_base(p)\n"
+             + "    return _Char(c) if isinstance(c, str) else c\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
@@ -1133,7 +1170,7 @@ public class Transpiler {
         if (e instanceof SExpr.Bool b)   { emit(b.value() ? "True" : "False"); }
         else if (e instanceof SExpr.Num n)    { emit(n.raw()); }
         else if (e instanceof SExpr.Str s)    { emitStr(s.value()); }
-        else if (e instanceof SExpr.Char ch)  { emit("'" + esc(ch.toJavaChar()) + "'"); }
+        else if (e instanceof SExpr.Char ch)  { emit("_Char('" + esc(ch.toJavaChar()) + "')"); }
         else if (e instanceof SExpr.Nil)      { emit("[]"); }
         else if (e instanceof SExpr.Vec v)    {
             emit("["); for (int i = 0; i < v.elements().size(); i++) { if (i>0) emit(", "); emitExpr(v.elements().get(i), ind); } emit("]");
@@ -1758,7 +1795,7 @@ public class Transpiler {
             case "boolean?" -> { sb.append("isinstance("); apE(sb,args.get(0),ind); sb.append(", bool)"); return sb.toString(); }
             case "procedure?","callable?" -> { sb.append("callable("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "integer?" -> { sb.append("isinstance("); apE(sb,args.get(0),ind); sb.append(", int)"); return sb.toString(); }
-            case "char?"    -> { sb.append("(isinstance("); apE(sb,args.get(0),ind); sb.append(", str) and len("); apE(sb,args.get(0),ind); sb.append(") == 1)"); return sb.toString(); }
+            case "char?"    -> { sb.append("char_p("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "vector?"  -> { sb.append("isinstance("); apE(sb,args.get(0),ind); sb.append(", list)"); return sb.toString(); }
         }
         return null;
@@ -1825,7 +1862,7 @@ public class Transpiler {
         else if (d instanceof SExpr.Num n)   emit(n.raw());
         else if (d instanceof SExpr.Str s)   emitStr(s.value());
         else if (d instanceof SExpr.Sym s)   { emit("_Sym("); emitStr(s.name()); emit(")"); }
-        else if (d instanceof SExpr.Char c)  emit("'" + esc(c.toJavaChar()) + "'");
+        else if (d instanceof SExpr.Char c)  emit("_Char('" + esc(c.toJavaChar()) + "')");
         else if (d instanceof SExpr.Vec v)   { emit("["); for(int i=0;i<v.elements().size();i++){if(i>0)emit(", ");emitQuote(v.elements().get(i));}emit("]"); }
         else if (d instanceof SExpr.Pair p)  { emit("["); List<SExpr> items=p.toList(); for(int i=0;i<items.size();i++){if(i>0)emit(", ");emitQuote(items.get(i));}emit("]"); }
     }

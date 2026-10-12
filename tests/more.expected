@@ -47,10 +47,10 @@ def m10():
     return l_l5
 
 def m11():
-    return ''.join(['a', 'b'])
+    return ''.join([_Char('a'), _Char('b')])
 
 def m13():
-    return char_upcase('a')
+    return char_upcase(_Char('a'))
 
 def m16():
     return max(1, 2.5)
