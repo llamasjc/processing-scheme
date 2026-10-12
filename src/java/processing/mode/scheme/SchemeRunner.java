@@ -69,7 +69,7 @@ public class SchemeRunner {
     private static final boolean RAW_LOG = System.getenv("SCHEME_RAW_LOG") != null;
 
     private static boolean isLogNoise(String l) {
-        return !RAW_LOG && LOG_LINE.matcher(l).find();
+        return !RAW_LOG && LOG_LINE.matcher(l.replaceAll("\u001B\\[[0-9;]*[A-Za-z]", "")).find();
     }
 
     private void pipeOut(InputStream is) {
