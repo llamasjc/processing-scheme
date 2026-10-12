@@ -719,7 +719,12 @@ public class Transpiler {
             }
         }
 
-        emitBody(body, ind + 1, LIFECYCLE_FNS.contains(name));
+        // A function calling itself in tail position loops instead of recursing.
+        String selfName = ((SExpr.Sym) hl.get(0)).name();
+        if (!rest && !LIFECYCLE_FNS.contains(name) && !params.contains(name))
+            emitLoopBody(body, selfName, params, ind + 1);
+        else
+            emitBody(body, ind + 1, LIFECYCLE_FNS.contains(name));
 
         inFunction = wasIn; localVars.clear(); localVars.addAll(wasLocal);
     }

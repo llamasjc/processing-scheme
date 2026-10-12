@@ -17,3 +17,11 @@
 ;; py: t4() == 10
 ;; py: t5() == [2, 1]
 ;; py: t6() == 'end'
+(define (cnt n) (if (= n 0) 'done (cnt (- n 1))))
+(define (sum-down n acc) (if (= n 0) acc (sum-down (- n 1) (+ acc n))))
+(define (gcd2 a b) (if (= b 0) a (gcd2 b (modulo a b))))
+(define (fact n) (if (= n 0) 1 (* n (fact (- n 1)))))
+;; py: cnt(100000) == 'done'
+;; py: sum_down(100000, 0) == 5000050000
+;; py: gcd2(48, 18) == 6
+;; py: fact(10) == 3628800

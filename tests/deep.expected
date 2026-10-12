@@ -93,6 +93,36 @@ def t6():
             return None
     return loop(0)
 
+def cnt(n):
+    while True:
+        if (n == 0):
+            return _Sym("done")
+        else:
+            n = (n - 1)
+            continue
+        return None
+
+def sum_down(n, acc):
+    while True:
+        if (n == 0):
+            return acc
+        else:
+            n, acc = (n - 1), (acc + n)
+            continue
+        return None
+
+def gcd2(a, b):
+    while True:
+        if (b == 0):
+            return a
+        else:
+            a, b = b, (a % b)
+            continue
+        return None
+
+def fact(n):
+    return (1 if (n == 0) else (n * fact((n - 1))))
+
 
 _scm_wrap(globals())
 run()
