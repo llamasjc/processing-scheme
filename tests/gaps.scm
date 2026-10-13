@@ -22,5 +22,5 @@ yo"))) (list (read-char p) (peek-char p) (read-line p) (read-line p) (eof-object
 ;; py: d1() == 3
 ;; py: all(0 <= noise(i * 0.37) <= 1 for i in range(50))
 ;; py: abs(noise(1.0) - noise(1.001)) < 0.01
-;; py: len(set(round(noise(i), 3) for i in range(10))) > 5
+;; py: len({round(noise(i), 3) for i in range(10)}) > 5
 ;; py: noise(0.5, 0.25) != noise(0.25, 0.5)
