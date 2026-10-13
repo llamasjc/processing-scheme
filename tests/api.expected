@@ -1,0 +1,35 @@
+def a1():
+    return _map((lambda x: (x * 2)), [1, 2, 3])
+
+def a2():
+    return _map(5, 0, 10, 0, 100)
+
+def a3():
+    return _map(_add, [1, 2], [10, 20])
+
+def a4():
+    return [lerp(0, 10, 0.5), constrain(15, 0, 10), constrain(-5, 0, 10), norm(5, 0, 10)]
+
+def a5():
+    return [dist(0, 0, 3, 4), mag(3, 4), dist(0, 0, 0, 1, 2, 2)]
+
+def a6():
+    return [round(degrees(3.141592653589793)), round((1000 * radians(180)))]
+
+def a7():
+    c_l1 = color(255, 128, 0)
+    return [round(red(c_l1)), round(green(c_l1)), round(blue(c_l1)), round(alpha(c_l1))]
+
+def a8():
+    return round(red(100))
+
+def a9():
+    c_l2 = lerp_color(color(0, 0, 0), color(255, 255, 255), 0.5)
+    return round(red(c_l2))
+
+def a10():
+    return (millis() >= 0)
+
+
+_scm_wrap(globals())
+run()

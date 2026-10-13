@@ -750,6 +750,28 @@ public class Transpiler {
              + "            return d()\n"
              + "        g['draw'] = dw\n"
              + "\n");
+        emit("_mw_color = color; _mw_fill = fill; _mw_stroke = stroke; _mw_background = background\n"
+             + "_mw_tint = globals().get('tint'); _mw_color_mode = color_mode\n"
+             + "_RGB_MODE = globals().get('RGB')\n"
+             + "_cm = {'rgb255': True}\n"
+             + "def color_mode(mode, *mx):\n"
+             + "    _cm['rgb255'] = (mode == _RGB_MODE) and all(m == 255 for m in mx)\n"
+             + "    return _mw_color_mode(mode, *mx)\n"
+             + "def _cn(a):\n"
+             + "    if not _cm['rgb255']: return a\n"
+             + "    return tuple(float(x) / 255.0 if isinstance(x, (int, float)) and not isinstance(x, bool) else x for x in a)\n"
+             + "def color(*a): return _mw_color(*_cn(a))\n"
+             + "def fill(*a): return _mw_fill(*_cn(a))\n"
+             + "def stroke(*a): return _mw_stroke(*_cn(a))\n"
+             + "def background(*a): return _mw_background(*_cn(a))\n"
+             + "if _mw_tint:\n"
+             + "    def tint(*a): return _mw_tint(*_cn(a))\n"
+             + "def lerp_color(c1, c2, t):\n"
+             + "    a, b = _rgba(c1), _rgba(c2)\n"
+             + "    return _mw_color(*[float(a[i] + (b[i] - a[i]) * t) for i in range(4)])\n"
+             + "for _n in ('camera', 'lights', 'ambient_light', 'begin_camera', 'end_camera'):\n"
+             + "    globals()[_n] = _unsupported(_n.replace('_', '-'))\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
