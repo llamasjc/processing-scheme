@@ -11,7 +11,7 @@ def tl4():
     return (cdr([1, 2]) + cdr([3, 4]))
 
 def tl5():
-    return list(map((lambda x: (x * 10)), cdr([1, 2, 3])))
+    return _map((lambda x: (x * 10)), cdr([1, 2, 3]))
 
 def tl6():
     return (cdr([1, 2, 3]) == [2, 3])

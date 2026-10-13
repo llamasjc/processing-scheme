@@ -77,7 +77,7 @@ def n5():
                     continue
                 return None
         return loop(n, 0)
-    return list(map(_lam1, [1, 2, 3]))
+    return _map(_lam1, [1, 2, 3])
 
 
 _scm_wrap(globals())
