@@ -32,6 +32,7 @@ public class SchemeRunner {
             pb.environment().put("QT_QPA_PLATFORM", "xcb");
             pb.environment().put("MEWNALA_BACKEND", "glfw-x11");
             pb.directory(launch.pythonScript.getParentFile());
+            copyAssets(launch.pythonScript.getParentFile());
             process = pb.start();
             pipeOut(process.getInputStream());
             pipeErr(process.getErrorStream());
@@ -50,6 +51,38 @@ public class SchemeRunner {
             Thread.currentThread().interrupt();
         } finally {
             listener.statusHalt();
+        }
+    }
+
+    // Like CppMode: the sketch's data/ folder, plus media files next to the sketch, go into
+    // build/assets, which is where mewnala's asset server looks for load-image and friends.
+    private static void copyAssets(java.io.File buildDir) {
+        try {
+            java.nio.file.Path build = buildDir.toPath();
+            java.nio.file.Path sketch = build.getParent();
+            java.nio.file.Path assets = build.resolve("assets");
+            java.nio.file.Files.createDirectories(assets);
+            java.nio.file.Path data = sketch.resolve("data");
+            if (java.nio.file.Files.isDirectory(data)) {
+                try (var walk = java.nio.file.Files.walk(data)) {
+                    for (java.nio.file.Path src : (Iterable<java.nio.file.Path>) walk::iterator) {
+                        java.nio.file.Path dst = assets.resolve(data.relativize(src).toString());
+                        if (java.nio.file.Files.isDirectory(src)) java.nio.file.Files.createDirectories(dst);
+                        else java.nio.file.Files.copy(src, dst, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                    }
+                }
+            }
+            try (var ls = java.nio.file.Files.list(sketch)) {
+                for (java.nio.file.Path src : (Iterable<java.nio.file.Path>) ls::iterator) {
+                    String n = src.getFileName().toString().toLowerCase();
+                    if (java.nio.file.Files.isRegularFile(src)
+                            && n.matches(".*\\.(png|jpe?g|gif|bmp|tga|webp|ttf|otf|svg|obj|wgsl|glsl|frag|vert)$"))
+                        java.nio.file.Files.copy(src, assets.resolve(src.getFileName().toString()),
+                                java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                }
+            }
+        } catch (java.io.IOException e) {
+            System.err.println("[SchemeMode] could not copy data/ into build/assets: " + e.getMessage());
         }
     }
 
