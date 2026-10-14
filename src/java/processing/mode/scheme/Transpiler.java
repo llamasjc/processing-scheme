@@ -772,6 +772,31 @@ public class Transpiler {
              + "for _n in ('camera', 'lights', 'ambient_light', 'begin_camera', 'end_camera'):\n"
              + "    globals()[_n] = _unsupported(_n.replace('_', '-'))\n"
              + "\n");
+        emit("import mewnala as _mewnala\n"
+             + "def _gfx():\n"
+             + "    g = _mewnala._get_graphics()\n"
+             + "    if g is None: raise _SchemeError('text drawing needs a window: call size first')\n"
+             + "    return g\n"
+             + "def _txt(x): return x if isinstance(x, str) else _show(x)\n"
+             + "_TA_H = {'left': 0, 'center': 1, 'right': 2}\n"
+             + "_TA_V = {'baseline': 0, 'top': 1, 'center': 2, 'bottom': 3}\n"
+             + "def text(c, x, y, *r): return _gfx().text(_txt(c), x, y, *r)\n"
+             + "def text_size(n): return _gfx().text_size(n)\n"
+             + "def text_align(h, v=None):\n"
+             + "    hv = _TA_H.get(str(h).lower(), h) if isinstance(h, str) else h\n"
+             + "    vv = None if v is None else (_TA_V.get(str(v).lower(), v) if isinstance(v, str) else v)\n"
+             + "    return _gfx().text_align(hv, vv)\n"
+             + "def text_leading(n): return _gfx().text_leading(n)\n"
+             + "def text_width(c): return _gfx().text_width(_txt(c))\n"
+             + "def text_ascent(): return _gfx().text_ascent()\n"
+             + "def text_descent(): return _gfx().text_descent()\n"
+             + "def text_style(n): return _gfx().text_style(n)\n"
+             + "def text_weight(n): return _gfx().text_weight(n)\n"
+             + "def text_font(f=None): return _gfx().text_font(f)\n"
+             + "for _k, _v in (('LEFT', 'left'), ('CENTER', 'center'), ('RIGHT', 'right'),\n"
+             + "               ('TOP', 'top'), ('BOTTOM', 'bottom'), ('BASELINE', 'baseline')):\n"
+             + "    globals().setdefault(_k, _v)\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
