@@ -893,6 +893,20 @@ public class Transpiler {
              + "            return d()\n"
              + "        g['draw'] = dw\n"
              + "\n");
+        emit("_scm_wrap_base6 = _scm_wrap\n"
+             + "def _scm_wrap(g):\n"
+             + "    _scm_wrap_base6(g)\n"
+             + "    d = g.get('draw')\n"
+             + "    if d:\n"
+             + "        def dw():\n"
+             + "            if _mode3d[0]:\n"
+             + "                w = g.get('width', 0); h = g.get('height', 0)\n"
+             + "                dist = (h / 2.0) / _math.tan(_math.pi / 6)\n"
+             + "                _mw_cam_pos(w / 2.0, h / 2.0, dist)\n"
+             + "                _mw_cam_look(w / 2.0, h / 2.0, 0.0)\n"
+             + "            return d()\n"
+             + "        g['draw'] = dw\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
@@ -2265,6 +2279,7 @@ public class Transpiler {
     );
 
     static String snake(String name) {
+        if (name.matches("[A-Z][A-Z0-9_]*")) return name; // all-caps constant like P3D or KEY_A: keep as written
         if (name == null) return "_";
         // Normalize camelCase to kebab-case first (mouseX -> mouse-x)
         // Only if the name contains uppercase letters (is camelCase)
