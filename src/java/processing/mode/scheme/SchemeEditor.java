@@ -82,7 +82,9 @@ public class SchemeEditor extends Editor {
     // ── Menus ─────────────────────────────────────────────────────────────────
     @Override
     public JMenu buildFileMenu() {
-        return buildFileMenu(new JMenuItem[]{});
+        JMenuItem exportApp = new JMenuItem("Export Application...");
+        exportApp.addActionListener(ev -> handleExportApplication());
+        return buildFileMenu(new JMenuItem[]{ exportApp });
     }
 
     @Override
@@ -288,5 +290,101 @@ public class SchemeEditor extends Editor {
             while (end < src.length() && !SchemeGoToDefinition.isDelimiter(src.charAt(end))) end++;
             return end > start ? src.substring(start, end) : null;
         } catch (Exception e) { return null; }
+    }
+
+    /**
+     * Export Application: a folder with the generated program, its assets, the installed mewnala
+     * package (bundled, so nothing needs installing), a run.sh launcher and a README.
+     */
+    public void handleExportApplication() {
+        try {
+            SchemeBuild build = new SchemeBuild(sketch, (SchemeMode) mode);
+            if (!build.prepare(this)) return;
+            java.io.File script = build.launch.pythonScript;
+            String name = build.launch.sketchName;
+            java.nio.file.Path out = sketch.getFolder().toPath().resolve("export").resolve("linux").resolve(name);
+            deleteTree(out);
+            java.nio.file.Files.createDirectories(out);
+            java.nio.file.Files.copy(script.toPath(), out.resolve(name + ".py"));
+            SchemeRunner.copyAssets(sketch.getFolder(), out.resolve("assets").toFile());
+
+            String[] info = pythonInfo(build.launch.pythonExe);
+            java.nio.file.Path pkg = java.nio.file.Path.of(info[0]);
+            String pyVersion = info[1];
+            copyTree(pkg, out.resolve("mewnala"));
+
+            String run = "#!/bin/sh\n"
+                + "# " + name + ": a SchemeMode sketch. See README.txt.\n"
+                + "cd \"$(dirname \"$0\")\"\n"
+                + "command -v python3 >/dev/null 2>&1 || { echo \"python3 is needed to run this sketch\"; exit 1; }\n"
+                + "python3 -c 'import sys; sys.exit(0 if \"%d.%d\" % sys.version_info[:2] == \"" + pyVersion + "\" else 1)' || {\n"
+                + "  echo \"This export was made for Python " + pyVersion + ". Found: $(python3 --version)\"; exit 1; }\n"
+                + "export RUST_LOG=error BEVY_LOG=error WGPU_LOG=error MEWNALA_BACKEND=glfw-x11\n"
+                + "if [ -n \"$SCHEME_RAW_LOG\" ]; then exec python3 -u \"" + name + ".py\" \"$@\"; fi\n"
+                + "# mewnala ignores RUST_LOG, so drop its TRACE..WARN log lines here (ERROR lines stay)\n"
+                + "ESC=$(printf '\\033')\n"
+                + "python3 -u \"" + name + ".py\" \"$@\" 2>&1 | grep -av --line-buffered -E \"^(${ESC}\\\\[[0-9;]*m)*[0-9]{4}-[0-9]{2}-[0-9]{2}T[^ ]* +(${ESC}\\\\[[0-9;]*m)*(TRACE|DEBUG|INFO|WARN)\"\n";
+            java.nio.file.Path runSh = out.resolve("run.sh");
+            java.nio.file.Files.writeString(runSh, run);
+            runSh.toFile().setExecutable(true, false);
+
+            String readme = name + "\n\n"
+                + "A Processing sketch written in Scheme, exported from SchemeMode.\n\n"
+                + "To run it:  ./run.sh\n\n"
+                + "It needs:\n"
+                + "  - Python " + pyVersion + "\n"
+                + "  - a Vulkan graphics driver and an X11 desktop\n\n"
+                + "The mewnala graphics library it draws with is included in the mewnala folder,\n"
+                + "so there is nothing to install beyond Python. Files the sketch loads are in assets.\n";
+            java.nio.file.Files.writeString(out.resolve("README.txt"), readme);
+
+            statusNotice("Exported to " + out);
+            openFolder(out.toFile());
+        } catch (Exception ex) {
+            statusError("Export failed: " + ex.getMessage());
+        }
+    }
+
+    /** Where the mewnala package is installed, and the Python version, from the Python that runs sketches. */
+    private static String[] pythonInfo(String pythonExe) throws Exception {
+        Process p = new ProcessBuilder(pythonExe, "-c",
+            "import mewnala, os, sys; print(os.path.dirname(mewnala.__file__)); print('%d.%d' % sys.version_info[:2])")
+            .redirectErrorStream(true).start();
+        String outText = new String(p.getInputStream().readAllBytes()).trim();
+        if (p.waitFor() != 0) throw new Exception("could not locate mewnala: " + outText);
+        String[] lines = outText.split("\n");
+        return new String[]{ lines[lines.length - 2].trim(), lines[lines.length - 1].trim() };
+    }
+
+    private static void copyTree(java.nio.file.Path src, java.nio.file.Path dst) throws java.io.IOException {
+        try (var walk = java.nio.file.Files.walk(src)) {
+            for (java.nio.file.Path f : (Iterable<java.nio.file.Path>) walk::iterator) {
+                if (f.toString().contains("__pycache__")) continue;
+                java.nio.file.Path t = dst.resolve(src.relativize(f).toString());
+                if (java.nio.file.Files.isDirectory(f)) java.nio.file.Files.createDirectories(t);
+                else java.nio.file.Files.copy(f, t, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
+    }
+
+    private static void deleteTree(java.nio.file.Path p) throws java.io.IOException {
+        if (!java.nio.file.Files.exists(p)) return;
+        try (var walk = java.nio.file.Files.walk(p)) {
+            java.util.List<java.nio.file.Path> all = new java.util.ArrayList<>();
+            walk.forEach(all::add);
+            java.util.Collections.reverse(all);
+            for (java.nio.file.Path f : all) java.nio.file.Files.delete(f);
+        }
+    }
+
+    /** Shows a folder in the file manager; failure to open it is harmless (the export is already done). */
+    private static void openFolder(java.io.File dir) {
+        try {
+            if (java.awt.Desktop.isDesktopSupported() && java.awt.Desktop.getDesktop().isSupported(java.awt.Desktop.Action.OPEN)) {
+                java.awt.Desktop.getDesktop().open(dir);
+                return;
+            }
+        } catch (Exception ignored) {}
+        try { new ProcessBuilder("xdg-open", dir.getAbsolutePath()).start(); } catch (Exception ignored) {}
     }
 }

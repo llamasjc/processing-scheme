@@ -57,10 +57,14 @@ public class SchemeRunner {
     // Like CppMode: the sketch's data/ folder, plus media files next to the sketch, go into
     // build/assets, which is where mewnala's asset server looks for load-image and friends.
     private static void copyAssets(java.io.File buildDir) {
+        copyAssets(buildDir.getParentFile(), new java.io.File(buildDir, "assets"));
+    }
+
+    /** Copies data/ and media files from a sketch folder into an assets folder (used for runs and exports). */
+    static void copyAssets(java.io.File sketchDir, java.io.File assetsDir) {
         try {
-            java.nio.file.Path build = buildDir.toPath();
-            java.nio.file.Path sketch = build.getParent();
-            java.nio.file.Path assets = build.resolve("assets");
+            java.nio.file.Path sketch = sketchDir.toPath();
+            java.nio.file.Path assets = assetsDir.toPath();
             java.nio.file.Files.createDirectories(assets);
             java.nio.file.Path data = sketch.resolve("data");
             if (java.nio.file.Files.isDirectory(data)) {
