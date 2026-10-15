@@ -22,6 +22,14 @@ public class SchemeEditor extends Editor {
         javax.swing.SwingUtilities.invokeLater(() -> {
             getTextArea().addCaretListener(e -> refreshHighlights());
             refreshHighlights();
+            // Go-to-definition: F3, or Ctrl+click on a name
+            getTextArea().getInputHandler().addKeyBinding("F3",
+                (java.awt.event.ActionListener) ev -> handleGoToDefinition());
+            getTextArea().getPainter().addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override public void mouseReleased(java.awt.event.MouseEvent ev) {
+                    if (ev.isControlDown()) javax.swing.SwingUtilities.invokeLater(() -> handleGoToDefinition());
+                }
+            });
         });
     }
 
@@ -247,5 +255,38 @@ public class SchemeEditor extends Editor {
             m.setOnUpdate(() -> getTextArea().getPainter().repaint());
             m.invalidate();
         }
+    }
+
+    /** Jump to the definition of the name at the caret; does nothing if it isn't defined in the sketch. */
+    public void handleGoToDefinition() {
+        String word = wordAtCaret();
+        if (word == null || word.isBlank()) return;
+        java.util.List<String> tabs = new java.util.ArrayList<>();
+        int current = sketch.getCurrentCodeIndex();
+        for (int i = 0; i < sketch.getCodeCount(); i++)
+            tabs.add(i == current ? getText() : sketch.getCode(i).getProgram());
+        SchemeGoToDefinition.Definition def = SchemeGoToDefinition.find(tabs, word);
+        if (def == null) { statusNotice("No definition of " + word + " in this sketch"); return; }
+        if (def.tabIndex() != current) sketch.setCurrentCode(def.tabIndex());
+        javax.swing.SwingUtilities.invokeLater(() -> {
+            try {
+                getTextArea().setCaretPosition(getTextArea().getLineStartOffset(def.row()) + def.col());
+                getTextArea().scrollTo(def.row(), def.col());
+            } catch (Exception ignored) {}
+        });
+    }
+
+    /** The Scheme name under the caret, split at Scheme delimiters (so make-ball! and in-range? work). */
+    private String wordAtCaret() {
+        try {
+            int pos = getTextArea().getCaretPosition();
+            String src = getTextArea().getDocument().getText(0, getTextArea().getDocumentLength());
+            if (pos < 0 || pos > src.length()) return null;
+            int start = pos;
+            while (start > 0 && !SchemeGoToDefinition.isDelimiter(src.charAt(start - 1))) start--;
+            int end = pos;
+            while (end < src.length() && !SchemeGoToDefinition.isDelimiter(src.charAt(end))) end++;
+            return end > start ? src.substring(start, end) : null;
+        } catch (Exception e) { return null; }
     }
 }
