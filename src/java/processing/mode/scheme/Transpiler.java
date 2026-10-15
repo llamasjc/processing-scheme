@@ -1028,6 +1028,12 @@ public class Transpiler {
              + "    _mw_vec3 = vec3\n"
              + "    def PVector(x=0.0, y=0.0, z=0.0): return _mw_vec3(x, y, z)\n"
              + "\n");
+        emit("_builtin_filter = __import__('builtins').filter\n"
+             + "_filter_notice = _unsupported('filter')\n"
+             + "def filter(*a):\n"
+             + "    if a and callable(a[0]): return list(_builtin_filter(a[0], *a[1:]))\n"
+             + "    return _filter_notice(*a)\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
