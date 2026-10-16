@@ -1047,11 +1047,8 @@ public class Transpiler {
              + "    except TypeError:\n"
              + "        return g.text_align(_TA_H.get(hs, hs), None if vs is None else _TA_V.get(vs, vs))\n"
              + "\n");
-        emit("try:\n"
-             + "    _probe_c = _mw_color(128, 128, 128)\n"
-             + "    _NATIVE255 = 0.3 < _rgba(_probe_c)[0] < 0.7\n"
-             + "except Exception:\n"
-             + "    _NATIVE255 = False\n"
+        emit("# mewnala reads whole numbers as 0-255 but decimals as 0-1, so colors go through Color objects\n"
+             + "_NATIVE255 = False\n"
              + "_cn_base = _cn\n"
              + "def _cn(a): return a if _NATIVE255 else _cn_base(a)\n"
              + "def lerp_color(c1, c2, t):\n"
@@ -1067,6 +1064,16 @@ public class Transpiler {
              + "def hue(c): return _c255(_hsv(c)[0])\n"
              + "def saturation(c): return _c255(_hsv(c)[1])\n"
              + "def brightness(c): return _c255(_hsv(c)[2])\n"
+             + "\n");
+        emit("def _as_color(a):\n"
+             + "    if not a or isinstance(a[0], bool) or not isinstance(a[0], (int, float)): return a\n"
+             + "    return (_mw_color(*_cn_base(a)),)\n"
+             + "def fill(*a): return _mw_fill(*_as_color(a))\n"
+             + "def stroke(*a): return _mw_stroke(*_as_color(a))\n"
+             + "def background(*a): return _mw_background(*_as_color(a))\n"
+             + "if _mw_tint:\n"
+             + "    def tint(*a): return _mw_tint(*_as_color(a))\n"
+             + "def color(*a): return _as_color(a)[0] if a and isinstance(a[0], (int, float)) and not isinstance(a[0], bool) else _mw_color(*a)\n"
              + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
