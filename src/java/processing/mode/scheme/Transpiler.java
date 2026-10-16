@@ -1075,6 +1075,17 @@ public class Transpiler {
              + "    def tint(*a): return _mw_tint(*_as_color(a))\n"
              + "def color(*a): return _as_color(a)[0] if a and isinstance(a[0], (int, float)) and not isinstance(a[0], bool) else _mw_color(*a)\n"
              + "\n");
+        emit("_PROVIDED = ('load_font create_font cursor no_cursor smooth no_smooth save_frame save create_graphics '\n"
+             + "             'push_style pop_style get set load_pixels update_pixels blend copy mask shape_mode create_shape '\n"
+             + "             'shape load_shape arc_mode ambient_light no_lights light_falloff light_specular').split()\n"
+             + "for _n in _PROVIDED:\n"
+             + "    if hasattr(_mewnala, _n): globals()[_n] = getattr(_mewnala, _n)\n"
+             + "if hasattr(_mewnala, 'filter'): _filter_notice = _mewnala.filter\n"
+             + "for _n in ('perspective', 'ortho'):\n"
+             + "    if hasattr(_mewnala, _n): globals()[_n] = getattr(_mewnala, _n)\n"
+             + "    elif hasattr(_mewnala.Graphics, _n):\n"
+             + "        globals()[_n] = (lambda name: lambda *a: getattr(_gfx(), name)(*a))(_n)\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
