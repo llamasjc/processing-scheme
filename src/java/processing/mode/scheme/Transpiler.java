@@ -1047,6 +1047,27 @@ public class Transpiler {
              + "    except TypeError:\n"
              + "        return g.text_align(_TA_H.get(hs, hs), None if vs is None else _TA_V.get(vs, vs))\n"
              + "\n");
+        emit("try:\n"
+             + "    _probe_c = _mw_color(128, 128, 128)\n"
+             + "    _NATIVE255 = 0.3 < _rgba(_probe_c)[0] < 0.7\n"
+             + "except Exception:\n"
+             + "    _NATIVE255 = False\n"
+             + "_cn_base = _cn\n"
+             + "def _cn(a): return a if _NATIVE255 else _cn_base(a)\n"
+             + "def lerp_color(c1, c2, t):\n"
+             + "    a, b = _rgba(c1), _rgba(c2)\n"
+             + "    k = 255.0 if _NATIVE255 else 1.0\n"
+             + "    return _mw_color(*[float(a[i] + (b[i] - a[i]) * t) * k for i in range(4)])\n"
+             + "\n");
+        emit("def _c255(v): return _builtins.round(v * 255.0, 3)\n"
+             + "def red(c): return _c255(_rgba(c)[0])\n"
+             + "def green(c): return _c255(_rgba(c)[1])\n"
+             + "def blue(c): return _c255(_rgba(c)[2])\n"
+             + "def alpha(c): return _c255(_rgba(c)[3])\n"
+             + "def hue(c): return _c255(_hsv(c)[0])\n"
+             + "def saturation(c): return _c255(_hsv(c)[1])\n"
+             + "def brightness(c): return _c255(_hsv(c)[2])\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
