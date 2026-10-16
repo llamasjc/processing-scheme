@@ -1034,6 +1034,19 @@ public class Transpiler {
              + "    if a and callable(a[0]): return list(_builtin_filter(a[0], *a[1:]))\n"
              + "    return _filter_notice(*a)\n"
              + "\n");
+        emit("_builtins = __import__('builtins')\n"
+             + "def round(x, *n): return _builtins.round(x, *n)\n"
+             + "_TA_HN = {0: 'left', 1: 'center', 2: 'right'}\n"
+             + "_TA_VN = {0: 'baseline', 1: 'top', 2: 'center', 3: 'bottom'}\n"
+             + "def text_align(h, v=None):\n"
+             + "    hs = h.lower() if isinstance(h, str) else _TA_HN.get(h, h)\n"
+             + "    vs = None if v is None else (v.lower() if isinstance(v, str) else _TA_VN.get(v, v))\n"
+             + "    g = _gfx()\n"
+             + "    try:\n"
+             + "        return g.text_align(hs) if vs is None else g.text_align(hs, vs)\n"
+             + "    except TypeError:\n"
+             + "        return g.text_align(_TA_H.get(hs, hs), None if vs is None else _TA_V.get(vs, vs))\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
