@@ -1136,6 +1136,7 @@ public class Transpiler {
              + "_PRIM_NAMES = {'RECT': 'rect', 'ELLIPSE': 'ellipse', 'ARC': 'arc', 'TRIANGLE': 'triangle', 'QUAD': 'quad',\n"
              + "               'LINE': 'line', 'POINT': 'point', 'BOX': 'box', 'SPHERE': 'sphere'}\n"
              + "for _k in list(_PRIM_NAMES) + ['GROUP', 'PATH']: globals().setdefault(_k, _k.lower())\n"
+             + "GROUP = globals().get('GROUP', 'group'); PATH = globals().get('PATH', 'path')\n"
              + "_PRIM_BY = {globals()[_k]: _v for _k, _v in _PRIM_NAMES.items()}\n"
              + "def _is_shape(a): return bool(a) and isinstance(a[0], _PShape)\n"
              + "def create_shape(*a):\n"
