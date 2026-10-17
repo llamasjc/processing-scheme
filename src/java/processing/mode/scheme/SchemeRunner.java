@@ -33,6 +33,7 @@ public class SchemeRunner {
             pb.environment().put("MEWNALA_BACKEND", "glfw-x11");
             pb.directory(launch.pythonScript.getParentFile());
             copyAssets(launch.pythonScript.getParentFile());
+            if (System.getenv("SCHEME_RAW_LOG") != null) pb.environment().put("PROCESSING_LOG", "info");
             process = pb.start();
             pipeOut(process.getInputStream());
             pipeErr(process.getErrorStream());
