@@ -1115,6 +1115,17 @@ public class Transpiler {
              + "            return r\n"
              + "        g['draw'] = dw\n"
              + "\n");
+        emit("_mw_cursor = getattr(_mewnala, 'cursor', None)\n"
+             + "_mw_no_cursor = getattr(_mewnala, 'no_cursor', None)\n"
+             + "_cursor_shape_notice = _unsupported('cursor shapes')\n"
+             + "for _k in ('ARROW', 'CROSS', 'HAND', 'MOVE', 'TEXT', 'WAIT'): globals().setdefault(_k, _k.lower())\n"
+             + "if _mw_cursor:\n"
+             + "    def cursor(*a):\n"
+             + "        if a: _cursor_shape_notice()\n"
+             + "        return _mw_cursor()\n"
+             + "if _mw_no_cursor:\n"
+             + "    def no_cursor(): return _mw_no_cursor()\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
