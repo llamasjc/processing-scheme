@@ -98,7 +98,7 @@ public class SchemeLinter {
             try {
                 Parser.read(tabs.get(i));
             } catch (SchemeException e) {
-                found.add(problemIn(tabs.get(i), i, e.line > 0 ? e.line - 1 : -1, e.getMessage()));
+                found.add(problemIn(tabs.get(i), i, e.line > 0 ? e.line - 1 : -1, friendly(e.getMessage())));
             } catch (Exception ignored) {}
         }
         if (!found.isEmpty()) parseFailedGeneration = gen;
@@ -114,7 +114,7 @@ public class SchemeLinter {
         try {
             py = new Transpiler().transpile(Parser.read(all), sketchName);
         } catch (SchemeException e) {
-            deliver(gen, List.of(problemAt(tabs, starts, e.line > 0 ? e.line - 1 : -1, e.getMessage())));
+            deliver(gen, List.of(problemAt(tabs, starts, e.line > 0 ? e.line - 1 : -1, friendly(e.getMessage()))));
             return;
         } catch (Exception e) {
             return;
@@ -205,4 +205,13 @@ public class SchemeLinter {
 
     public List<Problem> getProblems() { return problems; }
     public void shutdown() { scheduler.shutdownNow(); }
+
+    /** The parser's wording, translated into what went wrong in the sketch. */
+    static String friendly(String m) {
+        if (m == null) return "Syntax error";
+        String u = m.toUpperCase();
+        if (u.contains("RPAREN") && u.contains("EOF")) return "This form is never closed: it needs a ) at the end";
+        if (u.contains("UNEXPECTED") && u.contains("RPAREN")) return "This ) has nothing to close";
+        return m.replaceAll("\\(?\\)?@\\d+$", "").trim();
+    }
 }
