@@ -338,7 +338,8 @@ public class SchemeEditor extends Editor {
                 + "so there is nothing to install beyond Python. Files the sketch loads are in assets.\n";
             java.nio.file.Files.writeString(out.resolve("README.txt"), readme);
 
-            statusNotice("Exported to " + out);
+            exportPortable(out.getParent().getParent(), name, script.toPath());
+            statusNotice("Exported for Linux, Windows and macOS to " + out.getParent().getParent());
             openFolder(out.toFile());
         } catch (Exception ex) {
             statusError("Export failed: " + ex.getMessage());
@@ -386,5 +387,51 @@ public class SchemeEditor extends Editor {
             }
         } catch (Exception ignored) {}
         try { new ProcessBuilder("xdg-open", dir.getAbsolutePath()).start(); } catch (Exception ignored) {}
+    }
+
+    private static final String WIN_LAUNCHER =
+        "@echo off\r\n"
+        + "rem NAME: a SchemeMode sketch. See README.txt.\r\n"
+        + "cd /d \"%~dp0\"\r\n"
+        + "set PY=python\r\n"
+        + "where py >nul 2>nul && set PY=py -3\r\n"
+        + "%PY% -c \"import mewnala\" >nul 2>nul || %PY% -m pip install --user mewnala==0.0.8\r\n"
+        + "%PY% -u \"NAME.py\" %*\r\n"
+        + "pause\r\n";
+
+    private static final String MAC_LAUNCHER =
+        "#!/bin/sh\n"
+        + "# NAME: a SchemeMode sketch. See README.txt.\n"
+        + "cd \"$(dirname \"$0\")\"\n"
+        + "command -v python3 >/dev/null 2>&1 || { echo \"Python 3 is needed: https://www.python.org/downloads/\"; exit 1; }\n"
+        + "python3 -c 'import mewnala' 2>/dev/null || python3 -m pip install --user mewnala==0.0.8\n"
+        + "exec python3 -u \"NAME.py\" \"$@\"\n";
+
+    /** Windows and macOS exports: program, assets, a launcher that installs mewnala from PyPI on first run. */
+    private void exportPortable(java.nio.file.Path exportDir, String name, java.nio.file.Path script)
+            throws java.io.IOException {
+        String[][] targets = {
+            { "windows", "run.bat", WIN_LAUNCHER, "Windows", "double-click run.bat" },
+            { "macos", "run.command", MAC_LAUNCHER, "macOS", "double-click run.command (or run ./run.command in Terminal)" },
+        };
+        for (String[] t : targets) {
+            java.nio.file.Path dir = exportDir.resolve(t[0]).resolve(name);
+            deleteTree(dir);
+            java.nio.file.Files.createDirectories(dir);
+            java.nio.file.Files.copy(script, dir.resolve(name + ".py"));
+            SchemeRunner.copyAssets(sketch.getFolder(), dir.resolve("assets").toFile());
+            java.nio.file.Path launcher = dir.resolve(t[1]);
+            java.nio.file.Files.writeString(launcher, t[2].replace("NAME", name));
+            launcher.toFile().setExecutable(true, false);
+            String readme = name + "\n\n"
+                + "A Processing sketch written in Scheme, exported from SchemeMode for " + t[3] + ".\n\n"
+                + "To run it: " + t[4] + ".\n\n"
+                + "It needs Python 3 (https://www.python.org/downloads/). The first run installs the\n"
+                + "mewnala graphics library with pip; after that it starts right away.\n\n"
+                + "This version of mewnala comes from PyPI, so a few features from the Linux build are\n"
+                + "missing here (ambient light, hiding the cursor). Sketches that use them still run and\n"
+                + "print a short notice instead.\n";
+            java.nio.file.Files.writeString(dir.resolve("README.txt"), readme);
+        }
     }
 }
