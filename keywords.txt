@@ -378,7 +378,6 @@ captureMouse	FUNCTION2
 car	FUNCTION2
 case	KEYWORD3
 case-lambda	KEYWORD1
-catch	FUNCTION3
 cdar	FUNCTION2
 cdddr	FUNCTION2
 cddr	FUNCTION2
@@ -537,7 +536,6 @@ focused	KEYWORD4
 fold	FUNCTION2
 fold-left	FUNCTION2
 fold-right	FUNCTION2
-for	FUNCTION3
 for-each	FUNCTION2
 format	FUNCTION2
 frame-count	KEYWORD4
@@ -582,7 +580,6 @@ getRowCount	FUNCTION2
 getString	FUNCTION2
 getVertex	FUNCTION2
 getVertexCount	FUNCTION2
-goto	FUNCTION3
 green	FUNCTION2
 guard	FUNCTION3
 has-attribute	FUNCTION2
@@ -1068,7 +1065,6 @@ struct	KEYWORD6
 sub	FUNCTION2
 subset	FUNCTION1
 substring	FUNCTION2
-switch	FUNCTION3
 symbol->string	FUNCTION2
 symbol?	FUNCTION2
 syntax-rules	KEYWORD1
@@ -1112,7 +1108,6 @@ textureMode	FUNCTION1
 textureWrap	FUNCTION1
 this	KEYWORD6
 thread	FUNCTION2
-throw	FUNCTION3
 tint	FUNCTION2
 to-string	FUNCTION2
 toString	FUNCTION2
@@ -1124,7 +1119,6 @@ triangle	FUNCTION2
 trim	FUNCTION2
 true	KEYWORD1
 truncate	FUNCTION2
-try	FUNCTION3
 typedef	KEYWORD6
 typename	KEYWORD6
 unbinary	FUNCTION2
@@ -1157,7 +1151,6 @@ virtual	KEYWORD6
 void	KEYWORD6
 volatile	KEYWORD1
 when	FUNCTION3
-while	FUNCTION3
 width	KEYWORD4
 window-always-on-top	FUNCTION2
 window-center-on	FUNCTION2

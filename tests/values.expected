@@ -1,0 +1,42 @@
+def v1():
+    return _map(_abs, [-1, 2, -3])
+
+def v2():
+    return _map(quotient, [7, 9], [2, 4])
+
+def v3():
+    return list(filter(odd_p, list(range(6))))
+
+def v4():
+    return _map(_not, [True, False])
+
+def v5():
+    return _map(string_upcase, ["a", "b"])
+
+def v6():
+    return next((_p for _p in [[1, "a"], [2, "b"]] if _p[0] == 2), False)
+
+def v7():
+    return _map(list_ref, [[1, 2], [3, 4]], [1, 0])
+
+def v8():
+    return _add(*([1, 2, 3]))
+
+def w1():
+    return mag(P_vector(3, 4))
+
+def w2():
+    return heading(P_vector(0, 1))
+
+def w3():
+    a_l1 = P_vector(1, 2)
+    b_l2 = P_vector(3, 4)
+    add(a_l1, b_l2)
+    return [vec_x(a_l1), vec_y(a_l1)]
+
+def w4():
+    return max(3, 7, 5)
+
+
+_scm_wrap(globals())
+run()
