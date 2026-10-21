@@ -1974,6 +1974,18 @@ public class Transpiler {
              + "    m1 = k * (c - a); m2 = k * (d - b); t2 = t * t\n"
              + "    return (6 * t2 - 6 * t) * b + (3 * t2 - 4 * t + 1) * m1 + (-6 * t2 + 6 * t) * c + (3 * t2 - 2 * t) * m2\n"
              + "\n");
+        emit("def _restore_builtin_bases():\n"
+             + "    fixed = []\n"
+             + "    for n in dir(_builtins):\n"
+             + "        if n.startswith('_'): continue\n"
+             + "        cur = globals().get(n)\n"
+             + "        if cur is None or not getattr(cur, '__qualname__', '').startswith('_objfirst'): continue\n"
+             + "        cells = [c.cell_contents for c in (cur.__closure__ or ())]\n"
+             + "        if None in cells:\n"
+             + "            globals()[n] = _objfirst(n, getattr(_builtins, n)); fixed.append(n)\n"
+             + "    return fixed\n"
+             + "_restore_builtin_bases()\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
