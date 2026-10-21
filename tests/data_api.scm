@@ -22,3 +22,7 @@
 ;; py: t3() == [[1, 2, 3], [2, 3], [3, 2, 1], 3]
 ;; py: t4() == ['a', 2, 'hi', 2, True, 2]
 ;; py: t5() == 3
+(define (c1) (list (curve-point 0 10 20 30 0.5) (curve-point 0 10 20 30 0) (curve-point 0 10 20 30 1)))
+(define (c2) (begin (curve-tightness 1) (let ((v (curve-point 0 10 20 30 0.5))) (curve-tightness 0) v)))
+;; py: c1() == [15.0, 10.0, 20.0]
+;; py: c2() == 15.0

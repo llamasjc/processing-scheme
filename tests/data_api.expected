@@ -24,6 +24,12 @@ def t5():
     increment(d_l5, "x", 2)
     return get_int(d_l5, "x")
 
+def c1():
+    return [curve_point(0, 10, 20, 30, 0.5), curve_point(0, 10, 20, 30, 0), curve_point(0, 10, 20, 30, 1)]
+
+def c2():
+    return (curve_tightness(1), (lambda v: [curve_tightness(0), v][-1])(curve_point(0, 10, 20, 30, 0.5)))[-1]
+
 
 _scm_wrap(globals())
 run()
