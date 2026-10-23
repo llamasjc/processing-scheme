@@ -2139,6 +2139,13 @@ public class Transpiler {
              + "    return _texture_track_prev(*a, **k)\n"
              + "texture = _rewrap('texture', _texture_track2)\n"
              + "\n");
+        emit("_frustum_fallback = frustum\n"
+             + "def frustum(left, right, bottom, top, near, far):\n"
+             + "    g = _gfx()\n"
+             + "    if hasattr(g, 'frustum'):\n"
+             + "        return g.frustum(float(left), float(right), float(bottom), float(top), float(near), float(far))\n"
+             + "    return _frustum_fallback(left, right, bottom, top, near, far)\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
