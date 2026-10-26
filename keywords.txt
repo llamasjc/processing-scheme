@@ -60,6 +60,7 @@ DISABLE_TEXTURE_MIPMAPS	LITERAL2
 DIV	LITERAL2
 DOWN	LITERAL2
 DRAG	LITERAL2
+DXF	LITERAL2
 ELLIPSE	LITERAL2
 ENABLE_DEPTH_SORT	LITERAL2
 ENABLE_DEPTH_TEST	LITERAL2
@@ -182,6 +183,7 @@ MINUS	LITERAL2
 MIRROR	LITERAL2
 MITER	LITERAL2
 MIX	LITERAL2
+MODEL	LITERAL2
 MOVE	LITERAL2
 MUL	LITERAL2
 MULTIPLY	LITERAL2
@@ -207,6 +209,7 @@ PAGE_DOWN	LITERAL2
 PAGE_UP	LITERAL2
 PATH	LITERAL2
 PBR_NEUTRAL	LITERAL2
+PDF	LITERAL2
 PERIOD	LITERAL2
 PFont	KEYWORD5
 PGraphics	KEYWORD5
@@ -302,6 +305,7 @@ ambient	FUNCTION2
 ambient-light	FUNCTION2
 ambientLight	FUNCTION2
 and	KEYWORD1
+angle	FUNCTION2
 angle-between	FUNCTION2
 angleBetween	FUNCTION2
 append	FUNCTION2
@@ -398,11 +402,16 @@ char=?	FUNCTION2
 char>?	FUNCTION2
 char?	FUNCTION2
 circle	FUNCTION2
+clamp	FUNCTION2
 class	KEYWORD6
 clear	FUNCTION1
 clear-text-features	FUNCTION2
 clear-text-variations	FUNCTION2
 clip	FUNCTION2
+close	FUNCTION2
+close-input-port	FUNCTION2
+close-output-port	FUNCTION2
+close-port	FUNCTION2
 color	KEYWORD5
 color-hex	FUNCTION2
 color-mode	FUNCTION2
@@ -416,6 +425,7 @@ const	KEYWORD6
 constrain	FUNCTION2
 continue	KEYWORD3
 copy	FUNCTION2
+copy-from	FUNCTION2
 cos	FUNCTION2
 create-buffer	FUNCTION2
 create-compute	FUNCTION2
@@ -430,6 +440,7 @@ create-particles	FUNCTION2
 create-reader	FUNCTION1
 create-shader	FUNCTION2
 create-shape	FUNCTION2
+create-table	FUNCTION2
 create-window	FUNCTION2
 create-writer	FUNCTION1
 createFont	FUNCTION2
@@ -481,6 +492,7 @@ displayDensity	FUNCTION1
 displayHeight	KEYWORD4
 displayWidth	KEYWORD4
 dist	FUNCTION2
+distance	FUNCTION2
 div	FUNCTION2
 do	FUNCTION3
 dot	FUNCTION2
@@ -497,6 +509,7 @@ enable-style	FUNCTION2
 enableStyle	FUNCTION2
 end-camera	FUNCTION1
 end-contour	FUNCTION2
+end-draw	FUNCTION2
 end-raw	FUNCTION1
 end-record	FUNCTION1
 end-shape	FUNCTION2
@@ -510,6 +523,7 @@ eof-object	FUNCTION2
 eof-object?	FUNCTION2
 eq?	FUNCTION2
 equal?	FUNCTION2
+equals	FUNCTION2
 eqv?	FUNCTION2
 error	FUNCTION3
 error-object-irritants	FUNCTION2
@@ -522,12 +536,14 @@ exact?	FUNCTION2
 exit	FUNCTION2
 exp	FUNCTION2
 expt	FUNCTION2
+extend	FUNCTION2
 extern	KEYWORD6
 false	KEYWORD1
 feedback	FUNCTION2
 fill	FUNCTION2
 filter	FUNCTION2
 final	KEYWORD1
+find-row	FUNCTION2
 float	KEYWORD5
 floor	FUNCTION2
 flush	FUNCTION2
@@ -550,6 +566,7 @@ full-screen	FUNCTION2
 fullScreen	FUNCTION2
 gcd	FUNCTION2
 get	FUNCTION2
+get-boolean	FUNCTION2
 get-child	FUNCTION2
 get-child-count	FUNCTION2
 get-children	FUNCTION2
@@ -559,9 +576,12 @@ get-column-title	FUNCTION2
 get-content	FUNCTION2
 get-float	FUNCTION2
 get-int	FUNCTION2
+get-json-array	FUNCTION2
+get-json-object	FUNCTION2
 get-matrix	FUNCTION2
 get-name	FUNCTION2
 get-output-string	FUNCTION2
+get-row	FUNCTION2
 get-row-count	FUNCTION2
 get-string	FUNCTION2
 get-vertex	FUNCTION2
@@ -581,6 +601,7 @@ getString	FUNCTION2
 getVertex	FUNCTION2
 getVertexCount	FUNCTION2
 green	FUNCTION2
+grid	FUNCTION2
 guard	FUNCTION3
 has-attribute	FUNCTION2
 has-key	FUNCTION2
@@ -621,6 +642,7 @@ imageMode	FUNCTION2
 import	KEYWORD1
 include	KEYWORD1
 increment	FUNCTION2
+index	FUNCTION2
 inexact	FUNCTION2
 inexact?	FUNCTION2
 inline	KEYWORD6
@@ -658,6 +680,7 @@ launch	FUNCTION1
 lch	FUNCTION2
 lcm	FUNCTION2
 length	FUNCTION2
+length-squared	FUNCTION2
 lerp	FUNCTION2
 lerp-color	FUNCTION2
 lerpColor	FUNCTION2
@@ -680,6 +703,7 @@ linear-rgb	FUNCTION2
 list	FUNCTION1
 list->string	FUNCTION2
 list->vector	FUNCTION2
+list-attributes	FUNCTION2
 list-copy	FUNCTION2
 list-fonts	FUNCTION2
 list-ref	FUNCTION2
@@ -693,12 +717,15 @@ load-image	FUNCTION2
 load-jSONArray	FUNCTION1
 load-jSONObject	FUNCTION1
 load-json	FUNCTION2
+load-json-array	FUNCTION2
+load-json-object	FUNCTION2
 load-pixels	FUNCTION2
 load-shader	FUNCTION1
 load-shape	FUNCTION2
 load-strings	FUNCTION2
 load-table	FUNCTION1
 load-xML	FUNCTION1
+load-xml	FUNCTION2
 loadBytes	FUNCTION2
 loadFont	FUNCTION2
 loadImage	FUNCTION2
@@ -834,12 +861,17 @@ pan-camera	FUNCTION2
 parameterize	KEYWORD1
 parse-jSONArray	FUNCTION1
 parse-jSONObject	FUNCTION1
+parse-json-array	FUNCTION2
+parse-json-object	FUNCTION2
 parse-xML	FUNCTION1
+parse-xml	FUNCTION2
 parseJSONArray	FUNCTION1
 parseJSONObject	FUNCTION1
 parseXML	FUNCTION1
 particles	FUNCTION2
 peek-char	FUNCTION2
+peek-u8	FUNCTION2
+perpendicular	FUNCTION2
 perspective	FUNCTION2
 pixel-density	KEYWORD4
 pixel-height	KEYWORD4
@@ -906,6 +938,7 @@ rational?	FUNCTION2
 read-char	FUNCTION2
 read-line	FUNCTION2
 read-string	FUNCTION2
+read-u8	FUNCTION2
 real?	FUNCTION2
 rect	FUNCTION2
 rect-mode	FUNCTION2
@@ -947,10 +980,13 @@ save-frame	FUNCTION2
 save-jSONArray	FUNCTION1
 save-jSONObject	FUNCTION1
 save-json	FUNCTION2
+save-json-array	FUNCTION2
+save-json-object	FUNCTION2
 save-stream	FUNCTION1
 save-strings	FUNCTION2
 save-table	FUNCTION1
 save-xML	FUNCTION1
+save-xml	FUNCTION2
 saveBytes	FUNCTION2
 saveFrame	FUNCTION2
 saveJSONArray	FUNCTION1
@@ -975,13 +1011,17 @@ selectInput	FUNCTION2
 selectOutput	FUNCTION2
 set	FUNCTION2
 set!	KEYWORD1
+set-boolean	FUNCTION2
 set-car!	FUNCTION2
 set-cdr!	FUNCTION2
 set-clipboard	FUNCTION2
 set-content	FUNCTION2
 set-fill	FUNCTION2
 set-float	FUNCTION2
+set-heading	FUNCTION2
 set-int	FUNCTION2
+set-json-array	FUNCTION2
+set-json-object	FUNCTION2
 set-mag	FUNCTION2
 set-matrix	FUNCTION2
 set-string	FUNCTION2
@@ -1079,8 +1119,10 @@ text-descent	FUNCTION2
 text-feature	FUNCTION2
 text-font	FUNCTION2
 text-glyph-colors	FUNCTION2
+text-glyph-rects	FUNCTION2
 text-leading	FUNCTION2
 text-line-count	FUNCTION2
+text-lines	FUNCTION2
 text-mode	FUNCTION2
 text-size	FUNCTION2
 text-style	FUNCTION2
@@ -1109,6 +1151,7 @@ textureWrap	FUNCTION1
 this	KEYWORD6
 thread	FUNCTION2
 tint	FUNCTION2
+to-list	FUNCTION2
 to-string	FUNCTION2
 toString	FUNCTION2
 tonemapping	FUNCTION2
@@ -1133,7 +1176,11 @@ update-pixels	FUNCTION2
 updatePixels	FUNCTION2
 upper	FUNCTION2
 using	KEYWORD6
+uv	FUNCTION2
 values	FUNCTION2
+vec-x	FUNCTION2
+vec-y	FUNCTION2
+vec-z	FUNCTION2
 vec2	FUNCTION2
 vec3	FUNCTION2
 vec4	FUNCTION2
@@ -1147,6 +1194,7 @@ vector-ref	FUNCTION2
 vector-set!	FUNCTION2
 vector-set-x	FUNCTION2
 vertex	FUNCTION2
+vertex-count	FUNCTION2
 virtual	KEYWORD6
 void	KEYWORD6
 volatile	KEYWORD1
@@ -1181,6 +1229,7 @@ world-z	FUNCTION2
 write	FUNCTION2
 write-char	FUNCTION2
 write-string	FUNCTION2
+write-u8	FUNCTION2
 xyz	FUNCTION2
 year	FUNCTION2
 zero?	FUNCTION2

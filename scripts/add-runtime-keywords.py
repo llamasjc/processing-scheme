@@ -34,6 +34,7 @@ EXPLICIT = {
 CONVERT = ("string", "number", "symbol", "char", "integer", "list", "vector", "hash_table",
            "exact", "inexact", "utf8", "bytevector")
 SKIP = {"run"}
+SKIP_SCHEME = set("string-set vector-set id hash-code new-offscreen poll-for-sketch-update present readback-png update-raw sampler to-tuple background-image set-cursor-grab set-cursor-icon set-cursor-visible light-directional light-point light-spot draw-box draw-capsule draw-cone draw-conical-frustum draw-cylinder draw-plane draw-sphere draw-tetrahedron draw-torus".split())
 
 def scheme_name(n):
     if n in EXPLICIT: return EXPLICIT[n]
@@ -53,7 +54,7 @@ for n, v in sorted(g.items()):
     if isinstance(v, type(sys)): continue                      # modules
     if n[:1].isupper() and not n.isupper(): continue          # class names (Vec2, Graphics)
     name = n if n.isupper() else scheme_name(n)
-    if not name or name in existing: continue
+    if not name or name in existing or name in SKIP_SCHEME: continue
     kind = "LITERAL2" if n.isupper() else ("FUNCTION2" if callable(v) else None)
     if kind is None: continue
     existing[name] = kind; added.append(name)
