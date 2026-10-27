@@ -1,0 +1,32 @@
+def k1():
+    return [_int(3.7), _int("42"), _int(_Char('A')), _int(True)]
+
+def k2():
+    return [_float("2.5"), _float(3)]
+
+def k3():
+    return [boolean("true"), boolean(0), boolean(5)]
+
+def k4():
+    return [byte(200), byte(-1), byte(127)]
+
+def k5():
+    return [_str(True), _str(42), _str([1, 2])]
+
+def k6():
+    return char(65)
+
+def k7():
+    return [expand([1, 2]), shorten([1, 2, 3]), splice([1, 4], [2, 3], 1)]
+
+def k8():
+    dst_l1 = make_vector(4, 0)
+    array_copy([9, 8, 7], 0, dst_l1, 1, 2)
+    return dst_l1
+
+def k9():
+    return _int([1.5, 2.9])
+
+
+_scm_wrap(globals())
+run()
