@@ -2731,6 +2731,26 @@ public class Transpiler {
              + "        return _unsupported('filter')()\n"
              + "    return _pf_base(*a)\n"
              + "\n");
+        emit("_color_cache = {}\n"
+             + "_color_uncached = color\n"
+             + "def _color_fast(*a):\n"
+             + "    if 0 < len(a) <= 4:\n"
+             + "        for v in a:\n"
+             + "            if type(v) is not int and type(v) is not float: return _color_uncached(*a)\n"
+             + "        c = _color_cache.get(a)\n"
+             + "        if c is None:\n"
+             + "            if len(_color_cache) >= 4096: _color_cache.clear()\n"
+             + "            c = _color_cache[a] = _color_uncached(*a)\n"
+             + "        return c\n"
+             + "    return _color_uncached(*a)\n"
+             + "color = _color_fast\n"
+             + "_color_mode_uncached = globals().get('color_mode')\n"
+             + "if _color_mode_uncached:\n"
+             + "    def _color_mode_clearing(*a, **k):\n"
+             + "        _color_cache.clear()\n"
+             + "        return _color_mode_uncached(*a, **k)\n"
+             + "    color_mode = _rewrap('color_mode', _color_mode_clearing)\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
