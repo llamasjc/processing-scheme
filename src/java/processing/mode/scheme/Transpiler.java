@@ -2540,14 +2540,7 @@ public class Transpiler {
              + "_wratio = [None]\n"
              + "def window_ratio(w, h): _wratio[0] = (float(w), float(h))\n"
              + "def no_lights():\n"
-             + "    for lst in _lights.values():\n"
-             + "        for L in lst:\n"
-             + "            try: L.destroy()\n"
-             + "            except Exception: pass\n"
-             + "        del lst[:]\n"
-             + "    for k in _light_slot: _light_slot[k] = 0\n"
-             + "    if _mw_ambient: _mw_ambient((0.0, 0.0, 0.0), 0.0)\n"
-             + "    _amb['now'] = False; _lit_frame[0] = False\n"
+             + "    _lit_frame[0] = False\n"
              + "    if _mw_unlit: _mw_unlit()\n"
              + "_cam_m = [None]\n"
              + "def _m4_mul(a, b): return [[sum(a[i][k] * b[k][j] for k in range(4)) for j in range(4)] for i in range(4)]\n"
@@ -2574,7 +2567,7 @@ public class Transpiler {
              + "def end_camera():\n"
              + "    m = _cam_m[0]; _cam_m[0] = None\n"
              + "    if m is None: return None\n"
-             + "    e = _m4_ap(m, (0.0, 0.0, 0.0)); c = _m4_ap(m, (0.0, 0.0, -1.0)); u = _m4_ap(m, (0.0, 1.0, 0.0), 0.0)\n"
+             + "    e = _m4_ap(m, (0.0, 0.0, 0.0)); c = _m4_ap(m, (0.0, 0.0, -1000.0)); u = _m4_ap(m, (0.0, 1.0, 0.0), 0.0)\n"
              + "    return camera(e[0], e[1], e[2], c[0], c[1], c[2], u[0], u[1], u[2])\n"
              + "def _cm_translate(x, y, z=0): _cam_m[0] = _m4_mul(_cam_m[0], _m4_t(float(x), float(y), float(z)))\n"
              + "def _cm_rx(t): _cam_m[0] = _m4_mul(_cam_m[0], _m4_rot('x', t))\n"
@@ -2715,8 +2708,13 @@ public class Transpiler {
              + "        _nostroke0()\n"
              + "        for q, idxs in groups.items():\n"
              + "            _fill0(*q)\n"
-             + "            for i in idxs:\n"
-             + "                _mw_rect_raw((i % lp.w) / dens, (i // lp.w) / dens, 1.0 / dens, 1.0 / dens)\n"
+             + "            idxs.sort()\n"
+             + "            start = prev = idxs[0]\n"
+             + "            for i in idxs[1:] + [-2]:\n"
+             + "                if i == prev + 1 and i // lp.w == start // lp.w:\n"
+             + "                    prev = i; continue\n"
+             + "                _mw_rect_raw((start % lp.w) / dens, (start // lp.w) / dens, (prev - start + 1) / dens, 1.0 / dens)\n"
+             + "                start = prev = i\n"
              + "        if has_style: pop_style()\n"
              + "        pop_matrix()\n"
              + "        return None\n"
@@ -2724,6 +2722,14 @@ public class Transpiler {
              + "    return lp.g.update_pixels_raw(bytes(lp.data))\n"
              + "load_pixels = _rewrap('load_pixels', _load_pixels_lazy)\n"
              + "update_pixels = _rewrap('update_pixels', _update_pixels_lazy)\n"
+             + "\n");
+        emit("_pf_base = getattr(_mewnala, 'filter', None)\n"
+             + "def _pfilter(*a):\n"
+             + "    if a and isinstance(a[0], _OBJ_TYPES) and hasattr(a[0], 'filter'):\n"
+             + "        return a[0].filter(*a[1:])\n"
+             + "    if _pf_base is None:\n"
+             + "        return _unsupported('filter')()\n"
+             + "    return _pf_base(*a)\n"
              + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
@@ -3315,7 +3321,10 @@ public class Transpiler {
             case "vector-length","string-length","length" -> { emit("len("); emitExpr(args.get(0),ind); emit(")"); return; }
             case "apply"      -> { emitApply(args, ind); return; }
             case "map"        -> { emit("_map("); emitArgs(args,ind); emit(")"); return; }
-            case "filter"     -> { emit("list(filter("); emitExpr(args.get(0),ind); emit(", "); emitExpr(args.get(1),ind); emit("))"); return; }
+            case "filter"     -> {
+                boolean processing = args.size() != 2 || isFilterMode(args.get(0)) || isFilterMode(args.get(1));
+                if (processing) { emit("_pfilter("); emitArgs(args, ind); emit(")"); return; }
+                emit("list(filter("); emitExpr(args.get(0),ind); emit(", "); emitExpr(args.get(1),ind); emit("))"); return; }
             case "for-each"   -> { emit("_for_each("); for (int k = 0; k < args.size(); k++) { if (k > 0) emit(", "); emitExpr(args.get(k),ind); } emit(")"); return; }
             case "fold-left","foldl" -> { emit("__import__('functools').reduce("); emitExpr(args.get(0),ind); emit(", "); emitExpr(args.get(2),ind); emit(", "); emitExpr(args.get(1),ind); emit(")"); return; }
             case "error"      -> { emit("_err("); emitArgs(args,ind); emit(")"); return; }
@@ -4147,6 +4156,32 @@ public class Transpiler {
         "set","setattr","slice","sorted","staticmethod","str","sum","super","tuple",
         "type","vars","zip"
     );
+
+    static final java.util.Set<String> FILTER_MODES = java.util.Set.of(
+        "THRESHOLD", "GRAY", "OPAQUE", "INVERT", "POSTERIZE", "BLUR", "ERODE", "DILATE");
+
+    /** True when a filter argument is one of Processing's filter modes (so the call is Processing's filter). */
+    static boolean isFilterMode(Object o) {
+        if (o == null) return false;
+        if (FILTER_MODES.contains(String.valueOf(o).trim())) return true;
+        for (String n : new String[] {"name", "getName", "text", "value"}) {
+            try {
+                Object v = o.getClass().getMethod(n).invoke(o);
+                if (v != null && FILTER_MODES.contains(v.toString().trim())) return true;
+            } catch (Exception ignored) {}
+        }
+        for (Class<?> c = o.getClass(); c != null; c = c.getSuperclass()) {
+            for (java.lang.reflect.Field f : c.getDeclaredFields()) {
+                if (f.getType() != String.class) continue;
+                try {
+                    f.setAccessible(true);
+                    Object v = f.get(o);
+                    if (v != null && FILTER_MODES.contains(v.toString().trim())) return true;
+                } catch (Exception ignored) {}
+            }
+        }
+        return false;
+    }
 
     /** snake() for binding positions — also mangles Python builtins */
     static String snakeBind(String name) {
