@@ -2751,6 +2751,22 @@ public class Transpiler {
              + "        return _color_mode_uncached(*a, **k)\n"
              + "    color_mode = _rewrap('color_mode', _color_mode_clearing)\n"
              + "\n");
+        emit("_hsb_alias = True\n"
+             + "if globals().get('RGB') is None: RGB = globals().get('SRGB', 'srgb')\n"
+             + "if globals().get('HSB') is None: HSB = globals().get('HSV', 'hsv')\n"
+             + "\n");
+        emit("_rgba8_memo = {}\n"
+             + "def _rgba8(c):\n"
+             + "    if isinstance(c, int) and not isinstance(c, bool):\n"
+             + "        return ((c >> 16) & 255, (c >> 8) & 255, c & 255, (c >> 24) & 255)\n"
+             + "    hit = _rgba8_memo.get(id(c))\n"
+             + "    if hit is not None and hit[0] is c: return hit[1]\n"
+             + "    r, g, b, a = _rgba(c)\n"
+             + "    q = (int(r * 255 + 0.5), int(g * 255 + 0.5), int(b * 255 + 0.5), int(a * 255 + 0.5))\n"
+             + "    if len(_rgba8_memo) >= 4096: _rgba8_memo.clear()\n"
+             + "    _rgba8_memo[id(c)] = (c, q)\n"
+             + "    return q\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
