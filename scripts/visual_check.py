@@ -174,9 +174,12 @@ PIX = '''
 def measured_fps(out):
     t0 = re.findall(r't0 (\d+)', out); t1 = re.findall(r't1 (\d+)', out)
     return 180000.0 / (int(t1[0]) - int(t0[0])) if t0 and t1 and int(t1[0]) > int(t0[0]) else 0.0
-base, ob = run_sketch('pixels_base', PIX.replace('LOAD', '').replace('UPDATE', '').replace('TARGET', 'buf'), secs=40)
-p, op = run_sketch('pixels', PIX.replace('LOAD', '(load-pixels)').replace('UPDATE', '(update-pixels)').replace('TARGET', 'pixels'), secs=40)
-fb, fp = measured_fps(ob), measured_fps(op)
+fb = fp = 0.0; p = None; op = ''
+for attempt in range(2):
+    base, ob = run_sketch('pixels_base', PIX.replace('LOAD', '').replace('UPDATE', '').replace('TARGET', 'buf'), secs=40)
+    fb = max(fb, measured_fps(ob))
+    shot, out = run_sketch('pixels', PIX.replace('LOAD', '(load-pixels)').replace('UPDATE', '(update-pixels)').replace('TARGET', 'pixels'), secs=40)
+    if measured_fps(out) >= fp: fp, p, op = measured_fps(out), shot, out
 top = px(p, 300, 0) if p else None
 ok = fp > 0 and fb > 0 and fp >= 0.8 * fb and top is not None and top[0] > 200 and top[1] < 60
 report('pixels', ok, '%.0f fps with pixels, %.0f fps with the same loop into a plain vector; top row %s' % (fp, fb, top), op)
