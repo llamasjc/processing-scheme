@@ -126,7 +126,7 @@ SM = '''
 (define (draw)
   (background 255) (no-stroke) (fill 0)
   (translate 100 100) (rotate 0.3) (rect -50 -50 100 100)
-  (when (= frame-count 5) (save-frame "shot.png") (exit)))
+  (when (= frame-count 30) (save-frame "shot.png") (exit)))
 '''
 def soft_edges(img):
     w, h, bpp, d = img
