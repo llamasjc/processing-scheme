@@ -758,7 +758,7 @@ public class Transpiler {
              + "    _cm['rgb255'] = (mode == _RGB_MODE) and all(m == 255 for m in mx)\n"
              + "    return _mw_color_mode(mode, *mx)\n"
              + "def _cn(a):\n"
-             + "    if not _cm['rgb255']: return a\n"
+             + "    if not _cm['rgb255']: return tuple(float(x) if isinstance(x, int) and not isinstance(x, bool) else x for x in a)\n"
              + "    return tuple(float(x) / 255.0 if isinstance(x, (int, float)) and not isinstance(x, bool) else x for x in a)\n"
              + "def color(*a): return _mw_color(*_cn(a))\n"
              + "def fill(*a): return _mw_fill(*_cn(a))\n"
@@ -2766,6 +2766,16 @@ public class Transpiler {
              + "    if len(_rgba8_memo) >= 4096: _rgba8_memo.clear()\n"
              + "    _rgba8_memo[id(c)] = (c, q)\n"
              + "    return q\n"
+             + "\n");
+        emit("PI = _math.pi; HALF_PI = _math.pi / 2; QUARTER_PI = _math.pi / 4; TWO_PI = _math.pi * 2; TAU = _math.pi * 2\n"
+             + "_clip_screen = globals().get('clip')\n"
+             + "def clip(x, y, w, h):\n"
+             + "    sx = globals().get('screen_x'); sy = globals().get('screen_y')\n"
+             + "    if callable(sx) and callable(sy) and not _mode3d[0]:\n"
+             + "        pts = [(sx(a, b), sy(a, b)) for a, b in ((x, y), (x + w, y), (x, y + h), (x + w, y + h))]\n"
+             + "        xs = [q[0] for q in pts]; ys = [q[1] for q in pts]\n"
+             + "        return _clip_screen(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))\n"
+             + "    return _clip_screen(x, y, w, h)\n"
              + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
