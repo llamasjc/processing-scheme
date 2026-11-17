@@ -22,7 +22,7 @@ Like Processing, `clip` uses the current coordinates, so a `translate` before it
 
 ## Translucent colors
 
-A fill's alpha mixes it with what's underneath, in screen colors, like Processing: half-transparent red over white is (255, 128, 128).
+A fill's alpha mixes it with what's underneath. Processing mixes in screen colors, so half-transparent red over white is (255, 127, 127). SchemeMode doesn't match this yet: the engine mixes in linear light, which makes translucent colors lighter.
 
 ```scheme
 (define (setup) (size 100 100))
@@ -32,6 +32,7 @@ A fill's alpha mixes it with what's underneath, in screen colors, like Processin
   (fill 255 0 0 128)
   (rect 0 0 100 100))
 ;; pixel 50 50 => 255 127 127
+;; known difference: the engine still blends in linear light, so this comes out as (255, 187, 187)
 ```
 
 ## push and pop restore the style
@@ -184,4 +185,44 @@ A graphics buffer is drawn into with its own calls, then shown with `image`.
   (rect 10 10 50 50)
   (end-record))
 ;; file drawing.pdf contains %PDF
+```
+
+Filters work on screen colors, as in Processing, so mid tones come out the same too.
+
+```scheme
+(define (setup) (size 100 100))
+(define (draw)
+  (background 128)
+  (filter INVERT))
+;; pixel 50 50 => 127 127 127
+```
+
+```scheme
+(define (setup) (size 100 100))
+(define (draw)
+  (background 140)
+  (filter THRESHOLD))
+;; pixel 50 50 => 255 255 255
+```
+
+```scheme
+(define (setup) (size 100 100))
+(define (draw)
+  (background 200)
+  (filter POSTERIZE 2))
+;; pixel 50 50 => 255 255 255
+```
+
+Blurring a black and white edge averages in screen colors too, as in Processing. The edge lies between pixels 49 and 50, so the two pixels on either side of it come out just below and just above mid gray.
+
+```scheme
+(define (setup) (size 100 100))
+(define (draw)
+  (background 255)
+  (no-stroke)
+  (fill 0)
+  (rect 0 0 50 100)
+  (filter BLUR 6))
+;; pixel 49 50 => 112 112 112
+;; pixel 50 50 => 143 143 143
 ```

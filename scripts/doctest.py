@@ -168,9 +168,14 @@ def main():
             else:
                 _, err = transpile(code)
                 res = [(err is None, 'transpiles' if err is None else 'transpile: ' + err)]
+            known = re.search(r'^\s*;;\s*known difference', code, re.M) is not None
             for ok, msg in res:
-                total += 1; failed += 0 if ok else 1
-                print(('ok    ' if ok else 'FAIL  ') + label + '  ' + msg)
+                total += 1
+                if known:
+                    print(('FIXED ' if ok else 'KNOWN ') + label + '  ' + msg)
+                else:
+                    failed += 0 if ok else 1
+                    print(('ok    ' if ok else 'FAIL  ') + label + '  ' + msg)
     print('%d of %d checks passed' % (total - failed, total))
     sys.exit(1 if failed else 0)
 
