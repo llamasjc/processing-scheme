@@ -121,11 +121,12 @@ def check_sketch(code, workdir):
         if m: frames = int(m.group(1)); continue
         for pat, kind in ((r';;\s*pixel\s+(\d+)\s+(\d+)\s*=>\s*(\d+)\s+(\d+)\s+(\d+)', 'pixel'),
                           (r';;\s*region\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+has\s+(\d+)\s+(\d+)\s+(\d+)', 'region'),
+                          (r';;\s*brightest\s+(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+between\s+(\d+)\s+(\d+)', 'brightest'),
                           (r';;\s*output:\s*(.+)', 'output'),
                           (r';;\s*file\s+(\S+)\s+contains\s+(.+)', 'file')):
             m = re.match(pat, s)
             if m: exp.append((kind, m.groups(), s[2:].strip()))
-    needs_frame = any(k in ('pixel', 'region') for k, _, _ in exp)
+    needs_frame = any(k in ('pixel', 'region', 'brightest') for k, _, _ in exp)
     img, out, err = run_sketch(code, workdir, frames, needs_frame)
     if err: return [(False, err)]
     res = []
@@ -138,6 +139,13 @@ def check_sketch(code, workdir):
             if img:
                 ok = any(close(px(img, xx, yy), want) for yy in range(y, y + h) for xx in range(x, x + w))
             res.append((ok, text if ok else text + (', not found' if img else ', no frame saved')))
+        elif kind == 'brightest':
+            x, y, w, h, lo, hi = map(int, g); best = None
+            if img:
+                vals = [max(c) for c in (px(img, xx, yy) for yy in range(y, y + h) for xx in range(x, x + w)) if c]
+                best = max(vals) if vals else None
+            ok = best is not None and lo <= best <= hi
+            res.append((ok, text if ok else '%s, got %s' % (text, best)))
         elif kind == 'output':
             ok = g[0].strip() in out
             res.append((ok, text if ok else '%s, printed: %s' % (text, out.strip()[-200:])))
