@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Export a SchemeMode sketch as a self-contained app.
 
-  scripts/export.py SKETCH_FOLDER [--out FOLDER] [--wheel PATH]
+  scripts/export.py SKETCH_FOLDER [--out FOLDER] [--wheel PATH] [--program FILE.py] [--name NAME]
 
 Linux: one AppImage with its own Python 3.14, the fork's mewnala and the sketch.
 Downloads (Python, appimagetool) are cached in ~/.cache/schememode.
@@ -61,8 +61,8 @@ def transpile(sketch, name):
     if r.returncode or not r.stdout.strip(): sys.exit('transpile failed:\n' + r.stderr[-800:])
     return r.stdout
 
-def export_linux(sketch, out, wheel):
-    name = os.path.basename(os.path.normpath(sketch))
+def export_linux(sketch, out, wheel, program=None, name=None):
+    name = name or os.path.basename(os.path.normpath(sketch))
     appdir = os.path.join(CACHE, 'build', name + '.AppDir')
     shutil.rmtree(appdir, ignore_errors=True)
     os.makedirs(appdir)
@@ -74,7 +74,7 @@ def export_linux(sketch, out, wheel):
     subprocess.run([py, '-m', 'pip', 'install', '--quiet', '--no-deps', '--no-index', '--no-warn-script-location', wheel], check=True)
     sk = os.path.join(appdir, 'usr', 'sketch', name); b = os.path.join(sk, 'build')
     os.makedirs(b)
-    open(os.path.join(b, name + '.py'), 'w').write(transpile(sketch, name))
+    open(os.path.join(b, name + '.py'), 'w').write(open(program).read() if program else transpile(sketch, name))
     data = os.path.join(sketch, 'data')
     if os.path.isdir(data):
         shutil.copytree(data, os.path.join(sk, 'data'))
@@ -107,6 +107,8 @@ def main():
     out = a[a.index('--out') + 1] if '--out' in a else os.path.join(sketch, 'export')
     wheel = a[a.index('--wheel') + 1] if '--wheel' in a else os.path.expanduser('~/wheels/fork/mewnala-0.0.8-cp314-cp314-linux_x86_64.whl')
     if not os.path.exists(wheel): sys.exit('no mewnala wheel at ' + wheel)
-    export_linux(sketch, os.path.abspath(out), wheel)
+    program = a[a.index('--program') + 1] if '--program' in a else None
+    name = a[a.index('--name') + 1] if '--name' in a else None
+    export_linux(sketch, os.path.abspath(out), wheel, program, name)
 
 main()

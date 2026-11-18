@@ -296,6 +296,38 @@ public class SchemeEditor extends Editor {
      * Export Application: a folder with the generated program, its assets, the installed mewnala
      * package (bundled, so nothing needs installing), a run.sh launcher and a README.
      */
+    /** Builds a self-contained Linux AppImage (scripts/export.py) in the background. */
+    private void exportAppImage(java.io.File program, String name, String pythonExe) {
+        java.io.File exporter = new java.io.File(((SchemeMode) mode).getFolder(), "scripts/export.py");
+        if (!exporter.exists()) return;
+        java.io.File sketchDir = sketch.getFolder();
+        java.io.File outDir = new java.io.File(sketchDir, "export");
+        Thread t = new Thread(() -> {
+            String msg;
+            boolean ok = false;
+            try {
+                ProcessBuilder pb = new ProcessBuilder(pythonExe, exporter.getPath(), sketchDir.getPath(),
+                    "--out", outDir.getPath(), "--program", program.getPath(), "--name", name);
+                pb.redirectErrorStream(true);
+                Process proc = pb.start();
+                String out = new String(proc.getInputStream().readAllBytes());
+                ok = proc.waitFor() == 0;
+                String[] lines = out.strip().split("\n");
+                msg = lines.length > 0 ? lines[lines.length - 1] : "";
+            } catch (Exception ex) {
+                msg = ex.getMessage();
+            }
+            final boolean fine = ok;
+            final String last = msg;
+            javax.swing.SwingUtilities.invokeLater(() -> {
+                if (fine) statusNotice("Linux AppImage ready in " + outDir);
+                else statusError("AppImage export failed: " + last);
+            });
+        }, "scheme-appimage-export");
+        t.setDaemon(true);
+        t.start();
+    }
+
     public void handleExportApplication() {
         try {
             SchemeBuild build = new SchemeBuild(sketch, (SchemeMode) mode);
@@ -339,6 +371,7 @@ public class SchemeEditor extends Editor {
             java.nio.file.Files.writeString(out.resolve("README.txt"), readme);
 
             exportPortable(out.getParent().getParent(), name, script.toPath());
+            exportAppImage(script, name, String.valueOf(build.launch.pythonExe));
             statusNotice("Exported for Linux, Windows and macOS to " + out.getParent().getParent());
             openFolder(out.toFile());
         } catch (Exception ex) {
