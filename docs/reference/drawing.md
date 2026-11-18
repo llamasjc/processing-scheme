@@ -253,3 +253,19 @@ Images drawn while recording an SVG are embedded in it.
   (end-record))
 ;; file with-image.svg contains data:image/png;base64
 ```
+
+PDF recordings keep images too, with their transparency.
+
+```scheme
+(define pg #f)
+(define (setup)
+  (size 200 200)
+  (set! pg (create-graphics 40 40))
+  (begin-draw pg) (background pg 255 0 0) (end-draw pg)
+  (begin-record PDF "with-image.pdf")
+  (fill 0 0 255)
+  (rect 100 100 50 50)
+  (image pg 20 20)
+  (end-record))
+;; file with-image.pdf contains /Subtype /Image
+```
