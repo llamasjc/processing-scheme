@@ -226,3 +226,30 @@ Blurring a black and white edge averages in screen colors too, as in Processing.
 ;; pixel 49 50 => 112 112 112
 ;; pixel 50 50 => 143 143 143
 ```
+
+DXF recordings hold filled shapes as triangles and outlines as lines, like Processing's DXF library.
+
+```scheme
+(define (setup)
+  (size 200 200)
+  (begin-record DXF "shapes.dxf")
+  (fill 255 0 0)
+  (rect 20 20 80 60)
+  (ellipse 140 140 50 50)
+  (end-record))
+;; file shapes.dxf contains 3DFACE
+```
+
+Images drawn while recording an SVG are embedded in it.
+
+```scheme
+(define pg #f)
+(define (setup)
+  (size 200 200)
+  (set! pg (create-graphics 40 40))
+  (begin-draw pg) (background pg 0 0 255) (end-draw pg)
+  (begin-record SVG "with-image.svg")
+  (image pg 20 20)
+  (end-record))
+;; file with-image.svg contains data:image/png;base64
+```
