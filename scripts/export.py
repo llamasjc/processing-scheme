@@ -105,7 +105,12 @@ def main():
     if not a or a[0].startswith('-'): sys.exit(__doc__)
     sketch = os.path.abspath(a[0])
     out = a[a.index('--out') + 1] if '--out' in a else os.path.join(sketch, 'export')
-    wheel = a[a.index('--wheel') + 1] if '--wheel' in a else os.path.expanduser('~/wheels/fork/mewnala-0.0.8-cp314-cp314-linux_x86_64.whl')
+    if '--wheel' in a:
+        wheel = a[a.index('--wheel') + 1]
+    else:
+        import glob
+        found = sorted(glob.glob(os.path.expanduser('~/wheels/fork/mewnala-*-cp314-cp314-linux_x86_64.whl')), key=os.path.getmtime)
+        wheel = found[-1] if found else os.path.expanduser('~/wheels/fork/mewnala-0.0.8-cp314-cp314-linux_x86_64.whl')
     if not os.path.exists(wheel): sys.exit('no mewnala wheel at ' + wheel)
     program = a[a.index('--program') + 1] if '--program' in a else None
     name = a[a.index('--name') + 1] if '--name' in a else None
