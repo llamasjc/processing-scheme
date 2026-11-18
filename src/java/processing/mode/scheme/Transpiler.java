@@ -2777,6 +2777,29 @@ public class Transpiler {
              + "        return _clip_screen(min(xs), min(ys), max(xs) - min(xs), max(ys) - min(ys))\n"
              + "    return _clip_screen(x, y, w, h)\n"
              + "\n");
+        emit("_out_path_bundled = _out_path\n"
+             + "def _out_path(name):\n"
+             + "    d = _os.environ.get('SCHEME_OUTPUT_DIR')\n"
+             + "    if d and not _os.path.isabs(str(name)): return _os.path.join(d, str(name))\n"
+             + "    return _out_path_bundled(name)\n"
+             + "\n");
+        emit("def _out_abs(name):\n"
+             + "    d = _os.environ.get('SCHEME_OUTPUT_DIR')\n"
+             + "    name = str(name)\n"
+             + "    return name if (not d or _os.path.isabs(name)) else _os.path.join(d, name)\n"
+             + "_save_frame_native = save_frame\n"
+             + "def save_frame(*a):\n"
+             + "    if not _os.environ.get('SCHEME_OUTPUT_DIR'): return _save_frame_native(*a)\n"
+             + "    name = str(a[0]) if a else 'screen-####.png'\n"
+             + "    name = __import__('re').sub('#+', lambda m: str(int(globals().get('frame_count', 0) or 0)).zfill(len(m.group(0))), name)\n"
+             + "    return _save_frame_native(_out_abs(name), *a[1:])\n"
+             + "_save_native = save\n"
+             + "def save(*a):\n"
+             + "    if _os.environ.get('SCHEME_OUTPUT_DIR') and a:\n"
+             + "        if isinstance(a[0], str): a = (_out_abs(a[0]),) + a[1:]\n"
+             + "        elif len(a) > 1 and isinstance(a[1], str): a = (a[0], _out_abs(a[1])) + a[2:]\n"
+             + "    return _save_native(*a)\n"
+             + "\n");
         emit("# -- sketch --\n");
         for (SExpr f : forms) {
             if (f.isForm("import")) continue;
