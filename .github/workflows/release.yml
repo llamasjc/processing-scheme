@@ -164,20 +164,25 @@ jobs:
           pattern: ts-*
           path: ts
 
-      # the version comes from the tag: v1.2.3 -> prettyVersion=1.2.3 and
-      # version=10203 (always higher for a later release, which is what the
-      # Contribution Manager compares)
+      # the version: prettyVersion from the tag (v1.2.3 -> 1.2.3), and version
+      # one more than the latest published release's (the number the
+      # Contribution Manager compares). The same tag built again keeps its number.
       - name: Version from the tag
         if: startsWith(github.ref, 'refs/tags/v')
         shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           V=${GITHUB_REF_NAME#v}
-          IFS=. read -r A B C <<< "$V"; C=${C%%[!0-9]*}
-          N=$(( 10#${A:-0} * 10000 + 10#${B:-0} * 100 + 10#${C:-0} ))
+          LATEST=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName -q .tagName 2>/dev/null || true)
+          PREV=$(gh release download --repo "$GITHUB_REPOSITORY" --pattern 'SchemeMode.txt' --output - 2>/dev/null | sed -n 's/^version=//p' | tr -d '\r ')
+          if [ -z "$PREV" ]; then N=$(sed -n 's/^version=//p' mode.properties | tr -d '\r '); N=${N:-1}
+          elif [ "$LATEST" = "$GITHUB_REF_NAME" ]; then N=$PREV
+          else N=$((PREV + 1)); fi
+          echo "version $V, number $N (latest release: ${LATEST:-none}, its number: ${PREV:-none})"
           for f in mode.properties SchemeMode.txt; do
             [ -f "$f" ] || continue
             sed -i -e "s/^prettyVersion=.*/prettyVersion=$V/" -e "s/^version=.*/version=$N/" "$f"
-            grep -E "^(version|prettyVersion)=" "$f"
           done
 
       - name: Zip
