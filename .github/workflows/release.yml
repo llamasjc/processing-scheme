@@ -164,6 +164,22 @@ jobs:
           pattern: ts-*
           path: ts
 
+      # the version comes from the tag: v1.2.3 -> prettyVersion=1.2.3 and
+      # version=10203 (always higher for a later release, which is what the
+      # Contribution Manager compares)
+      - name: Version from the tag
+        if: startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        run: |
+          V=${GITHUB_REF_NAME#v}
+          IFS=. read -r A B C <<< "$V"; C=${C%%[!0-9]*}
+          N=$(( 10#${A:-0} * 10000 + 10#${B:-0} * 100 + 10#${C:-0} ))
+          for f in mode.properties SchemeMode.txt; do
+            [ -f "$f" ] || continue
+            sed -i -e "s/^prettyVersion=.*/prettyVersion=$V/" -e "s/^version=.*/version=$N/" "$f"
+            grep -E "^(version|prettyVersion)=" "$f"
+          done
+
       - name: Zip
         run: |
           rm -rf dist && mkdir -p dist/SchemeMode
@@ -189,13 +205,25 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # a draft first, published with: gh release edit <tag> --draft=false
+          # (repository variable RELEASE_DIRECT=true publishes right away)
+          DRAFT=--draft; [ "${{ vars.RELEASE_DIRECT }}" = true ] && DRAFT=
           files="dist/SchemeMode.zip SchemeMode.txt"
           notes="release-notes/$GITHUB_REF_NAME.md"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" $files --clobber
+            # up under a temporary name first; the old file goes only once the new one is there
+            for f in $files; do
+              n=$(basename "$f"); tmp="new-$n"; cp "$f" "$RUNNER_TEMP/$tmp"
+              gh release delete-asset "$GITHUB_REF_NAME" "$tmp" -y 2>/dev/null || true
+              gh release upload "$GITHUB_REF_NAME" "$RUNNER_TEMP/$tmp"
+              old=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets -q ".assets[] | select(.name==\"$n\") | .apiUrl")
+              [ -n "$old" ] && gh api -X DELETE "$old"
+              new=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json assets -q ".assets[] | select(.name==\"$tmp\") | .apiUrl")
+              gh api -X PATCH "$new" -f name="$n" >/dev/null
+            done
             [ -f "$notes" ] && gh release edit "$GITHUB_REF_NAME" --notes-file "$notes"
           elif [ -f "$notes" ]; then
-            gh release create "$GITHUB_REF_NAME" $files --title "Scheme Mode ${GITHUB_REF_NAME#v}" --notes-file "$notes"
+            gh release create "$GITHUB_REF_NAME" $files --title "Scheme Mode ${GITHUB_REF_NAME#v}" --notes-file "$notes" $DRAFT
           else
-            gh release create "$GITHUB_REF_NAME" $files --title "Scheme Mode ${GITHUB_REF_NAME#v}" --generate-notes
+            gh release create "$GITHUB_REF_NAME" $files --title "Scheme Mode ${GITHUB_REF_NAME#v}" --generate-notes $DRAFT
           fi
