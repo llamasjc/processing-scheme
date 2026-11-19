@@ -1,0 +1,10 @@
+name=Scheme Mode
+category=Other
+authors=[Jose Llamas](https://github.com/llamasjc)
+url=https://github.com/llamasjc/processing-scheme
+sentence=Write Processing sketches in Scheme.
+paragraph=Write sketches in Scheme with the Processing API you already know: setup, draw, ellipse, mouse-x. Scheme Mode turns them into Python and runs them on libprocessing, on your graphics card. Python comes in the zip, so there's nothing else to install.
+version=1
+prettyVersion=0.1.0
+minRevision=0
+maxRevision=0

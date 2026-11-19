@@ -1,0 +1,156 @@
+name: Release
+
+# Builds SchemeMode.zip: the mode jar, java-tree-sitter (with the Scheme-only
+# Linux library), and a standalone Python with the fork's mewnala for each
+# platform, so nothing has to be installed. Pushing a v* tag publishes it with
+# SchemeMode.txt, which the Contribution Manager reads.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+env:
+  # the fork release whose mewnala wheels go in the zip (same as CppMode uses)
+  LP_TAG: v0.0.8-fork.2
+  # java-tree-sitter version (the jar in mode/ on your machine)
+  TS_VERSION: 1.9.1
+
+jobs:
+  jar:
+    name: Mode jar
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+      - uses: gradle/actions/setup-gradle@v5
+
+      - name: Processing 4.3 (pde and core jars)
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/p.tgz" \
+            https://github.com/processing/processing4/releases/download/processing-1293-4.3/processing-4.3-linux-x64.tgz
+          mkdir "$RUNNER_TEMP/processing"
+          tar xzf "$RUNNER_TEMP/p.tgz" -C "$RUNNER_TEMP/processing" --strip-components=1 \
+            --wildcards '*/lib/pde.jar' '*/core/library/core.jar'
+          echo "PROCESSING_DIR=$RUNNER_TEMP/processing" >> "$GITHUB_ENV"
+
+      - name: Build
+        run: |
+          gradle jar modeLibs -PtsVersion="$TS_VERSION" --no-daemon
+          mkdir -p mode
+          cp build/libs/SchemeMode.jar build/mode/*.jar mode/
+          ls -la mode
+
+      # the Scheme-only tree-sitter library for Linux, swapped into the jar
+      - name: Tree-sitter (Linux)
+        run: bash native/build.sh
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: mode
+          path: |
+            mode/
+            resources/queries/
+
+  python:
+    name: Python (${{ matrix.plat }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-22.04,   plat: linux-x86_64 }
+          - { os: macos-latest,   plat: macos-aarch64 }
+          - { os: windows-latest, plat: windows-x86_64 }
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: mewnala wheels from the fork release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release download "$LP_TAG" -R llamasjc/libprocessing -p 'mewnala-*.whl' -D wheels && ls wheels
+
+      - name: Python with mewnala
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          PY=$(command -v python3 || command -v python)
+          "$PY" scripts/ci/bundle_python.py ${{ matrix.plat }} wheels python
+
+      - name: Linux libraries mewnala loads
+        if: runner.os == 'Linux'
+        run: sudo apt-get install -y -q libx11-6 libxcursor1 libxrandr2 libxi6 libxkbcommon0 libwayland-client0
+
+      - name: Smoke test (import mewnala)
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then PY=python/${{ matrix.plat }}/python.exe; else PY=python/${{ matrix.plat }}/bin/python3; fi
+          "$PY" -c "import mewnala, sys; print('mewnala ok on', sys.version.split()[0])"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: python-${{ matrix.plat }}
+          path: python/
+
+  release:
+    name: Release
+    needs: [jar, python]
+    # a platform whose Python failed is left out; the others still ship
+    if: ${{ always() && needs.jar.result == 'success' }}
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/download-artifact@v6
+        with:
+          name: mode
+          path: .
+
+      - uses: actions/download-artifact@v6
+        with:
+          pattern: python-*
+          path: python
+          merge-multiple: true
+
+      - name: Zip
+        run: |
+          rm -rf dist && mkdir -p dist/SchemeMode
+          cp -r mode resources examples keywords.txt mode.properties dist/SchemeMode/
+          [ -d python ] && cp -r python dist/SchemeMode/
+          [ -f LICENSE ] && cp LICENSE dist/SchemeMode/ || true
+          # no -y: symlinks are stored as the files they point to, because
+          # Processing's unzip doesn't make symlinks
+          (cd dist && zip -qr SchemeMode.zip SchemeMode)
+          ls -lh dist/SchemeMode.zip
+          ls dist/SchemeMode/python 2>/dev/null || echo "no Python bundled"
+
+      - uses: actions/upload-artifact@v6
+        with:
+          name: SchemeMode-zip
+          path: dist/SchemeMode.zip
+
+      - name: Publish
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          files="dist/SchemeMode.zip SchemeMode.txt"
+          notes="release-notes/$GITHUB_REF_NAME.md"
+          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            gh release upload "$GITHUB_REF_NAME" $files --clobber
+            [ -f "$notes" ] && gh release edit "$GITHUB_REF_NAME" --notes-file "$notes"
+          elif [ -f "$notes" ]; then
+            gh release create "$GITHUB_REF_NAME" $files --title "Scheme Mode ${GITHUB_REF_NAME#v}" --notes-file "$notes"
+          else
+            gh release create "$GITHUB_REF_NAME" $files --title "Scheme Mode ${GITHUB_REF_NAME#v}" --generate-notes
+          fi

@@ -27,10 +27,14 @@ public class SchemeRunner {
             pb.environment().put("WGPU_LOG", "error");
             pb.environment().put("BEVY_ASSET_LOG", "error");
             pb.environment().put("RUST_LOG_STYLE", "never");
-            pb.environment().put("DISPLAY", System.getenv().getOrDefault("DISPLAY", ":0"));
-            pb.environment().put("GDK_BACKEND", "x11");
-            pb.environment().put("QT_QPA_PLATFORM", "xcb");
-            pb.environment().put("MEWNALA_BACKEND", "glfw-x11");
+            // the fork is built for X11 on Linux; macOS and Windows use their own windows
+            String os = System.getProperty("os.name", "").toLowerCase();
+            if (!os.contains("win") && !os.contains("mac")) {
+                pb.environment().put("DISPLAY", System.getenv().getOrDefault("DISPLAY", ":0"));
+                pb.environment().put("GDK_BACKEND", "x11");
+                pb.environment().put("QT_QPA_PLATFORM", "xcb");
+                pb.environment().put("MEWNALA_BACKEND", "glfw-x11");
+            }
             pb.directory(launch.pythonScript.getParentFile());
             copyAssets(launch.pythonScript.getParentFile());
             if (System.getenv("SCHEME_RAW_LOG") != null) pb.environment().put("PROCESSING_LOG", "info");
