@@ -9,3 +9,9 @@ __pycache__/
 .gradle/
 hs_err_pid*.log
 core.*
+
+# built by native/build_ts.py (CI puts them in the release zip)
+native/.build-ts/
+native/linux-*/
+native/macos/
+native/windows-*/

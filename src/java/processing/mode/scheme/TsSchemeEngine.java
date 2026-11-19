@@ -17,7 +17,7 @@ public final class TsSchemeEngine {
     synchronized (TsSchemeEngine.class) {
       if (INSTANCE == null && !FAILED) {
         try {
-          ch.usi.si.seart.treesitter.LibraryLoader.load();
+          loadNative();
           INSTANCE = new TsSchemeEngine();
         } catch (Throwable t) {
           FAILED = true;
@@ -26,6 +26,27 @@ public final class TsSchemeEngine {
       }
       return INSTANCE;
     }
+  }
+
+  /**
+   * The Scheme-only library built for this computer (native/&lt;platform&gt;/,
+   * see native/build_ts.py) when the mode has one: java-tree-sitter's own
+   * loader only knows Linux and macOS, so Windows needs this. Otherwise the
+   * library inside the java-tree-sitter jar.
+   */
+  private static void loadNative() {
+    String os = System.getProperty("os.name", "").toLowerCase();
+    boolean arm = System.getProperty("os.arch", "").matches("aarch64|arm64");
+    String rel = os.contains("win") ? "windows-x86_64/java-tree-sitter.dll"
+               : os.contains("mac") ? "macos/libjava-tree-sitter.dylib"
+               : (arm ? "linux-aarch64" : "linux-x86_64") + "/libjava-tree-sitter.so";
+    java.io.File lib = null;
+    try {
+      java.io.File jar = new java.io.File(TsSchemeEngine.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+      lib = new java.io.File(jar.getParentFile().getParentFile(), "native/" + rel);
+    } catch (Exception ignored) {}
+    if (lib != null && lib.isFile()) System.load(lib.getAbsolutePath());
+    else ch.usi.si.seart.treesitter.LibraryLoader.load();
   }
 
   public static boolean isAvailable() { return !FAILED && INSTANCE != null; }

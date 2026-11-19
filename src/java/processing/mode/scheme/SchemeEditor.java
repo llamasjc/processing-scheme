@@ -292,10 +292,6 @@ public class SchemeEditor extends Editor {
         } catch (Exception e) { return null; }
     }
 
-    /**
-     * Export Application: a folder with the generated program, its assets, the installed mewnala
-     * package (bundled, so nothing needs installing), a run.sh launcher and a README.
-     */
     /** Builds a self-contained Linux AppImage (scripts/export.py) in the background. */
     private void exportAppImage(java.io.File program, String name, String pythonExe) {
         java.io.File exporter = new java.io.File(((SchemeMode) mode).getFolder(), "scripts/export.py");
@@ -328,55 +324,50 @@ public class SchemeEditor extends Editor {
         t.start();
     }
 
+    /**
+     * Export Application: the same dialog as Lua and Rust Mode. Every platform
+     * the mode's zip has a Python for, an icon, where it goes, and an AppImage
+     * on Linux (see SchemeExport).
+     */
     public void handleExportApplication() {
-        try {
-            SchemeBuild build = new SchemeBuild(sketch, (SchemeMode) mode);
-            if (!build.prepare(this)) return;
-            java.io.File script = build.launch.pythonScript;
-            String name = build.launch.sketchName;
-            java.nio.file.Path out = sketch.getFolder().toPath().resolve("export").resolve("linux").resolve(name);
-            deleteTree(out);
-            java.nio.file.Files.createDirectories(out);
-            java.nio.file.Files.copy(script.toPath(), out.resolve(name + ".py"));
-            SchemeRunner.copyAssets(sketch.getFolder(), out.resolve("assets").toFile());
-
-            String[] info = pythonInfo(build.launch.pythonExe);
-            java.nio.file.Path pkg = java.nio.file.Path.of(info[0]);
-            String pyVersion = info[1];
-            copyTree(pkg, out.resolve("mewnala"));
-
-            String run = "#!/bin/sh\n"
-                + "# " + name + ": a SchemeMode sketch. See README.txt.\n"
-                + "cd \"$(dirname \"$0\")\"\n"
-                + "command -v python3 >/dev/null 2>&1 || { echo \"python3 is needed to run this sketch\"; exit 1; }\n"
-                + "python3 -c 'import sys; sys.exit(0 if \"%d.%d\" % sys.version_info[:2] == \"" + pyVersion + "\" else 1)' || {\n"
-                + "  echo \"This export was made for Python " + pyVersion + ". Found: $(python3 --version)\"; exit 1; }\n"
-                + "export RUST_LOG=error BEVY_LOG=error WGPU_LOG=error MEWNALA_BACKEND=glfw-x11\n"
-                + "if [ -n \"$SCHEME_RAW_LOG\" ]; then exec python3 -u \"" + name + ".py\" \"$@\"; fi\n"
-                + "# mewnala ignores RUST_LOG, so drop its TRACE..WARN log lines here (ERROR lines stay)\n"
-                + "ESC=$(printf '\\033')\n"
-                + "python3 -u \"" + name + ".py\" \"$@\" 2>&1 | grep -av --line-buffered -E \"^(${ESC}\\\\[[0-9;]*m)*[0-9]{4}-[0-9]{2}-[0-9]{2}T[^ ]* +(${ESC}\\\\[[0-9;]*m)*(TRACE|DEBUG|INFO|WARN)\"\n";
-            java.nio.file.Path runSh = out.resolve("run.sh");
-            java.nio.file.Files.writeString(runSh, run);
-            runSh.toFile().setExecutable(true, false);
-
-            String readme = name + "\n\n"
-                + "A Processing sketch written in Scheme, exported from SchemeMode.\n\n"
-                + "To run it:  ./run.sh\n\n"
-                + "It needs:\n"
-                + "  - Python " + pyVersion + "\n"
-                + "  - a Vulkan graphics driver and an X11 desktop\n\n"
-                + "The mewnala graphics library it draws with is included in the mewnala folder,\n"
-                + "so there is nothing to install beyond Python. Files the sketch loads are in assets.\n";
-            java.nio.file.Files.writeString(out.resolve("README.txt"), readme);
-
-            exportPortable(out.getParent().getParent(), name, script.toPath());
-            exportAppImage(script, name, String.valueOf(build.launch.pythonExe));
-            statusNotice("Exported for Linux, Windows and macOS to " + out.getParent().getParent());
-            openFolder(out.toFile());
-        } catch (Exception ex) {
-            statusError("Export failed: " + ex.getMessage());
+        if (sketch.isUntitled() || sketch.isReadOnly()) {
+            statusError("Save the sketch first: the export goes inside its folder.");
+            return;
         }
+        if (sketch.isModified()) {
+            try { sketch.save(); } catch (Exception ex) { statusError("Couldn't save: " + ex.getMessage()); return; }
+        }
+        java.io.File modeFolder = mode.getFolder();
+        ExportDialog.Choice choice = ExportDialog.show(this, sketch.getFolder(),
+            new String[] { "libprocessing" }, "libprocessing",
+            (t, r) -> SchemeExport.python(modeFolder, t) == null ? "not in this copy of Scheme Mode" : null);
+        if (choice == null) return;
+        SchemeBuild build = new SchemeBuild(sketch, (SchemeMode) mode);
+        if (!build.prepare(this)) return;
+        java.io.File script = build.launch.pythonScript;
+        String name = build.launch.sketchName;
+        statusNotice("Exporting...");
+        Thread worker = new Thread(() -> {
+            java.util.List<String> made = new java.util.ArrayList<>();
+            try {
+                choice.outDir.mkdirs();
+                for (ExportDialog.Target t : choice.targets) {
+                    java.io.File dest = SchemeExport.write(modeFolder, sketch.getFolder(), name, script, t,
+                        choice.outDir, choice.icon, choice.appImage,
+                        m -> java.awt.EventQueue.invokeLater(() -> statusNotice(m)));
+                    made.add(dest.getName());
+                }
+                String msg = "Exported to " + choice.outDir.getName() + "/: " + String.join(", ", made);
+                java.awt.EventQueue.invokeLater(() -> statusNotice(msg));
+                openFolder(choice.outDir);
+            } catch (Throwable ex) {
+                ex.printStackTrace();
+                String msg = "Export failed: " + ex.getMessage();
+                java.awt.EventQueue.invokeLater(() -> statusError(msg));
+            }
+        }, "schememode-export");
+        worker.setDaemon(true);
+        worker.start();
     }
 
     /** Where the mewnala package is installed, and the Python version, from the Python that runs sketches. */
@@ -420,51 +411,5 @@ public class SchemeEditor extends Editor {
             }
         } catch (Exception ignored) {}
         try { new ProcessBuilder("xdg-open", dir.getAbsolutePath()).start(); } catch (Exception ignored) {}
-    }
-
-    private static final String WIN_LAUNCHER =
-        "@echo off\r\n"
-        + "rem NAME: a SchemeMode sketch. See README.txt.\r\n"
-        + "cd /d \"%~dp0\"\r\n"
-        + "set PY=python\r\n"
-        + "where py >nul 2>nul && set PY=py -3\r\n"
-        + "%PY% -c \"import mewnala\" >nul 2>nul || %PY% -m pip install --user mewnala==0.0.8\r\n"
-        + "%PY% -u \"NAME.py\" %*\r\n"
-        + "pause\r\n";
-
-    private static final String MAC_LAUNCHER =
-        "#!/bin/sh\n"
-        + "# NAME: a SchemeMode sketch. See README.txt.\n"
-        + "cd \"$(dirname \"$0\")\"\n"
-        + "command -v python3 >/dev/null 2>&1 || { echo \"Python 3 is needed: https://www.python.org/downloads/\"; exit 1; }\n"
-        + "python3 -c 'import mewnala' 2>/dev/null || python3 -m pip install --user mewnala==0.0.8\n"
-        + "exec python3 -u \"NAME.py\" \"$@\"\n";
-
-    /** Windows and macOS exports: program, assets, a launcher that installs mewnala from PyPI on first run. */
-    private void exportPortable(java.nio.file.Path exportDir, String name, java.nio.file.Path script)
-            throws java.io.IOException {
-        String[][] targets = {
-            { "windows", "run.bat", WIN_LAUNCHER, "Windows", "double-click run.bat" },
-            { "macos", "run.command", MAC_LAUNCHER, "macOS", "double-click run.command (or run ./run.command in Terminal)" },
-        };
-        for (String[] t : targets) {
-            java.nio.file.Path dir = exportDir.resolve(t[0]).resolve(name);
-            deleteTree(dir);
-            java.nio.file.Files.createDirectories(dir);
-            java.nio.file.Files.copy(script, dir.resolve(name + ".py"));
-            SchemeRunner.copyAssets(sketch.getFolder(), dir.resolve("assets").toFile());
-            java.nio.file.Path launcher = dir.resolve(t[1]);
-            java.nio.file.Files.writeString(launcher, t[2].replace("NAME", name));
-            launcher.toFile().setExecutable(true, false);
-            String readme = name + "\n\n"
-                + "A Processing sketch written in Scheme, exported from SchemeMode for " + t[3] + ".\n\n"
-                + "To run it: " + t[4] + ".\n\n"
-                + "It needs Python 3 (https://www.python.org/downloads/). The first run installs the\n"
-                + "mewnala graphics library with pip; after that it starts right away.\n\n"
-                + "This version of mewnala comes from PyPI, so a few features from the Linux build are\n"
-                + "missing here (ambient light, hiding the cursor). Sketches that use them still run and\n"
-                + "print a short notice instead.\n";
-            java.nio.file.Files.writeString(dir.resolve("README.txt"), readme);
-        }
     }
 }
