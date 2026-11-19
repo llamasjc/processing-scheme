@@ -200,6 +200,20 @@ jobs:
           ls -lh dist/SchemeMode.zip
           ls dist/SchemeMode/python 2>/dev/null || echo "no Python bundled"
 
+      # sketches without the IDE: every Python, the converter, the examples and
+      # run scripts (like C++ Mode's plug-and-play package)
+      - name: Standalone package
+        run: |
+          S=dist/processing-scheme-standalone
+          rm -rf "$S" && mkdir -p "$S/lib"
+          [ -d python ] && cp -r python "$S/"
+          cp mode/SchemeMode.jar "$S/lib/"
+          cp -r examples "$S/"
+          cp scripts/standalone/run.sh scripts/standalone/run.bat scripts/standalone/README.md "$S/"
+          chmod +x "$S/run.sh"
+          (cd dist && zip -qr processing-scheme-standalone.zip processing-scheme-standalone)
+          ls -lh dist/processing-scheme-standalone.zip
+
       - uses: actions/upload-artifact@v6
         with:
           name: SchemeMode-zip
@@ -213,7 +227,7 @@ jobs:
           # a draft first, published with: gh release edit <tag> --draft=false
           # (repository variable RELEASE_DIRECT=true publishes right away)
           DRAFT=--draft; [ "${{ vars.RELEASE_DIRECT }}" = true ] && DRAFT=
-          files="dist/SchemeMode.zip SchemeMode.txt"
+          files="dist/SchemeMode.zip SchemeMode.txt dist/processing-scheme-standalone.zip"
           notes="release-notes/$GITHUB_REF_NAME.md"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             # up under a temporary name first; the old file goes only once the new one is there

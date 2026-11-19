@@ -32,24 +32,10 @@ public class SchemeBuild {
             listener.statusError("Cannot read sketch: " + e.getMessage()); return false;
         }
 
-        List<SExpr> forms;
-        try { forms = Parser.parse(src); } catch (SchemeException e) {
-            listener.statusError("Parse error line " + e.line + ": " + e.getMessage()); return false;
-        }
-
         String py;
-        try { py = new Transpiler().transpile(forms, sketch.getName()); } catch (SchemeException e) {
-            listener.statusError("Transpile error line " + e.line + ": " + e.getMessage()); return false;
+        try { py = SchemeCli.toPython(src, sketch.getName()); } catch (SchemeException e) {
+            listener.statusError("Error line " + e.line + ": " + e.getMessage()); return false;
         }
-
-        // Match Processing Java default camera:
-        // eye at (width/2, height/2, (height/2)/tan(60*pi/360))
-        // looking at (width/2, height/2, 0), up (0,1,0)
-        py = py.replace("    mode_3d()\n",
-            "    mode_3d()\n" +
-            "    _eye_z = (height/2) / _math.tan(60 * _math.pi / 360)\n" +
-            "    camera_position(width/2, height/2, _eye_z)\n" +
-            "    camera_look_at(width/2, height/2, 0)\n");
         lineMapper = new LineMapper(py);
 
         File buildDir = new File(sketch.getFolder(), "build");
