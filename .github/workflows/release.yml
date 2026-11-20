@@ -214,6 +214,14 @@ jobs:
           (cd dist && zip -qr processing-scheme-standalone.zip processing-scheme-standalone)
           ls -lh dist/processing-scheme-standalone.zip
 
+      # each platform's Python on its own too: the Export dialog downloads the
+      # ones a copy of the mode doesn't have (a copy built from the repository)
+      - name: Python per platform
+        run: |
+          [ -d python ] || exit 0
+          for d in python/*/; do p=$(basename "$d"); (cd python && zip -qr "../dist/SchemeMode-python-$p.zip" "$p"); done
+          ls -lh dist/SchemeMode-python-*.zip
+
       - uses: actions/upload-artifact@v6
         with:
           name: SchemeMode-zip
@@ -227,7 +235,7 @@ jobs:
           # a draft first, published with: gh release edit <tag> --draft=false
           # (repository variable RELEASE_DIRECT=true publishes right away)
           DRAFT=--draft; [ "${{ vars.RELEASE_DIRECT }}" = true ] && DRAFT=
-          files="dist/SchemeMode.zip SchemeMode.txt dist/processing-scheme-standalone.zip"
+          files="dist/SchemeMode.zip SchemeMode.txt dist/processing-scheme-standalone.zip $(ls dist/SchemeMode-python-*.zip 2>/dev/null | tr '\n' ' ')"
           notes="release-notes/$GITHUB_REF_NAME.md"
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             # up under a temporary name first; the old file goes only once the new one is there

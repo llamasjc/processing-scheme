@@ -340,7 +340,16 @@ public class SchemeEditor extends Editor {
         java.io.File modeFolder = mode.getFolder();
         ExportDialog.Choice choice = ExportDialog.show(this, sketch.getFolder(),
             new String[] { "libprocessing" }, "libprocessing",
-            (t, r) -> SchemeExport.python(modeFolder, t) == null ? "not in this copy of Scheme Mode" : null);
+            (t, r) -> PythonDownload.why(modeFolder, t),
+            new ExportDialog.Installer() {
+                public boolean can(ExportDialog.Target t, String r) {
+                    return SchemeExport.python(modeFolder, t) == null && PythonDownload.available(t);
+                }
+                public void install(ExportDialog.Target t) {
+                    PythonDownload.install(modeFolder, t,
+                        m -> java.awt.EventQueue.invokeLater(() -> statusNotice(m)));
+                }
+            });
         if (choice == null) return;
         SchemeBuild build = new SchemeBuild(sketch, (SchemeMode) mode);
         if (!build.prepare(this)) return;
