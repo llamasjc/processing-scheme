@@ -15,11 +15,8 @@ def t4():
 
 def t5():
     acc_l2 = []
-    def _lam1(a, b):
-        nonlocal acc_l2
+    for a, b in zip([1, 2], [10, 20]):
         acc_l2 = cons((a + b), acc_l2)
-    for _fi in zip([1, 2], [10, 20]):
-        _lam1(*_fi)
     return acc_l2
 
 

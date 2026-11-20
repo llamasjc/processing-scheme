@@ -21,11 +21,8 @@ def sh4(a, b):
 
 def sh5(n):
     acc_l8 = 0
-    def _lam1(i):
-        nonlocal acc_l8
+    for i in [1, 2, n]:
         acc_l8 = (acc_l8 + i)
-    for _fi in [1, 2, n]:
-        _lam1(_fi)
     return acc_l8
 
 w = 5

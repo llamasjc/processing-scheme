@@ -1,0 +1,37 @@
+def t1(axis):
+    acc = 0
+    if (axis == 1):
+        i = 0
+        while True:
+            if (i == 3):
+                break
+            k = (i * 2)
+            acc = (acc + k)
+            i = (i + 1)
+        return acc
+    else:
+        return -1
+
+def t2(xs):
+    n = 0
+    for x in xs:
+        d = (x * 2)
+        if (d > 2):
+            n = (n + 1)
+    return n
+
+def t3(i):
+    xs_l1 = [1, 2, 3]
+    def _lam1(i):
+        nonlocal xs_l1
+        xs_l1 = cons(i, xs_l1)
+    for _fi in [9]:
+        _lam1(_fi)
+    return [i, len(xs_l1)]
+
+def t4():
+    return cadr([1, 2, 3])
+
+
+_scm_wrap(globals())
+run()

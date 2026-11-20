@@ -1130,10 +1130,10 @@ public class Transpiler {
              + "\n");
         emit("class _PShape:\n"
              + "    __slots__ = ('kind', 'prim', 'args', 'verts', 'skind', 'close', 'fill', 'stroke', 'sweight',\n"
-             + "                 'children', 'visible', 'ops')\n"
+             + "                 'children', 'visible', 'ops', 'name')\n"
              + "    def __init__(s, kind, prim=None, args=()):\n"
              + "        s.kind = kind; s.prim = prim; s.args = tuple(args); s.verts = []; s.skind = None; s.close = False\n"
-             + "        s.fill = None; s.stroke = None; s.sweight = None; s.children = []; s.visible = True; s.ops = []\n"
+             + "        s.fill = None; s.stroke = None; s.sweight = None; s.children = []; s.visible = True; s.ops = []; s.name = None\n"
              + "    def __repr__(s): return '#<shape ' + s.kind + '>'\n"
              + "_PRIM_NAMES = {'RECT': 'rect', 'ELLIPSE': 'ellipse', 'ARC': 'arc', 'TRIANGLE': 'triangle', 'QUAD': 'quad',\n"
              + "               'LINE': 'line', 'POINT': 'point', 'BOX': 'box', 'SPHERE': 'sphere'}\n"
@@ -1264,7 +1264,14 @@ public class Transpiler {
              + "    _replay(sh)\n"
              + "    pop_matrix()\n"
              + "def add_child(g, c): g.children.append(c)\n"
-             + "def get_child(g, i): return g.children[i]\n"
+             + "def _find_child(g, name):\n"
+             + "    for c in g.children:\n"
+             + "        if c.name == name: return c\n"
+             + "    for c in g.children:\n"
+             + "        f = _find_child(c, name)\n"
+             + "        if f is not False: return f\n"
+             + "    return False\n"
+             + "def get_child(g, i): return _find_child(g, i) if isinstance(i, str) else g.children[i]\n"
              + "def get_child_count(g): return len(g.children)\n"
              + "def _vidx(sh): return [i for i, v in enumerate(sh.verts) if v[0] == 'v']\n"
              + "def get_vertex_count(sh): return len(_vidx(sh))\n"
@@ -1487,7 +1494,7 @@ public class Transpiler {
              + "        sh = _PShape('path'); sh.verts = [('v', nums[k], nums[k + 1]) for k in range(0, len(nums) - 1, 2)]\n"
              + "        sh.close = tag == 'polygon'; _svg_apply_style(sh, st)\n"
              + "        if tag == 'polyline': sh.fill = False\n"
-             + "    if sh is not None: sh.ops = _svg_transform(el.get('transform'))\n"
+             + "    if sh is not None: sh.ops = _svg_transform(el.get('transform')); sh.name = el.get('id')\n"
              + "    return sh\n"
              + "def _load_svg(path):\n"
              + "    import xml.etree.ElementTree as _ET\n"
@@ -1729,6 +1736,17 @@ public class Transpiler {
              + "def vec_x(v): return v.x\n"
              + "def vec_y(v): return v.y\n"
              + "def vec_z(v): return v.z\n"
+             + "def set_vec_x(v, a): v.x = a\n"
+             + "def set_vec_y(v, a): v.y = a\n"
+             + "def set_vec_z(v, a): v.z = a\n"
+             + "if 'link' not in globals():\n"
+             + "    def link(url, *a):\n"
+             + "        import webbrowser; webbrowser.open(str(url))\n"
+             + "def _obj_attr(n, o):\n"
+             + "    if type(o).__name__ == '_PShape' and n in ('width', 'height'):\n"
+             + "        return o.args[0 if n == 'width' else 1] if o.kind == 'group' and len(o.args) >= 2 else 0\n"
+             + "    v = getattr(o, n)\n"
+             + "    return v() if callable(v) else v\n"
              + "_mw_vec2 = globals().get('vec2'); _mw_vec3b = globals().get('vec3')\n"
              + "if _mw_vec2 and _mw_vec3b:\n"
              + "    def PVector(x=0.0, y=0.0, *z):\n"
@@ -1856,7 +1874,8 @@ public class Transpiler {
              + "def parse_json_object(t): return _from_json(_json.loads(t))\n"
              + "parse_json_array = parse_json_object\n"
              + "load_json_object = load_json; load_json_array = load_json\n"
-             + "save_json_object = save_json; save_json_array = save_json\n"
+             + "def save_json_object(a, b): return save_json(a, b) if isinstance(a, str) else save_json(b, a)\n"
+             + "save_json_array = save_json_object\n"
              + "def load_xml(name): return _XML(_ET.parse(_find_data(name)).getroot())\n"
              + "def parse_xml(t): return _XML(_ET.fromstring(t))\n"
              + "def save_xml(x, name): _ET.ElementTree(x.el).write(_out_path(name), encoding='utf-8', xml_declaration=True)\n"
@@ -3175,6 +3194,30 @@ public class Transpiler {
             emitBody(wf.subList(2, wf.size()), ind+1, false);
             return;
         }
+        // a cond or if whose branches hold loops or defines: statements, each branch returning
+        if (!noReturn && (last.isForm("cond") || last.isForm("if")) && hasStmtForm(last) && !hasArrowClause(last)) {
+            List<SExpr> f = list(last);
+            if (last.isForm("if")) {
+                hoistLambdas(f.get(1), ind);
+                indent(ind); emit("if "); emitTest(f.get(1), ind); emit(":\n");
+                emitBody(List.of(f.get(2)), ind+1, false);
+                if (f.size() > 3) { indent(ind); emit("else:\n"); emitBody(List.of(f.get(3)), ind+1, false); }
+                return;
+            }
+            boolean first = true;
+            for (SExpr cl : f.subList(1, f.size())) {
+                List<SExpr> c = list(cl);
+                if (c.get(0).isSym("else")) { indent(ind); emit(first ? "if True:\n" : "else:\n"); }
+                else {
+                    hoistLambdas(c.get(0), ind);
+                    indent(ind); emit(first ? "if " : "elif "); emitTest(c.get(0), ind); emit(":\n");
+                }
+                if (c.size() == 1) { indent(ind+1); emit("return "); emitExpr(c.get(0), ind+1); emit("\n"); }
+                else emitBody(c.subList(1, c.size()), ind+1, false);
+                first = false;
+            }
+            return;
+        }
         boolean hasNamedLetBranch = last.isForm("if") && containsNamedLet(last);
         if (hasNamedLetBranch && !noReturn) {
             List<SExpr> f = ((SExpr.Pair) last).toList();
@@ -3573,8 +3616,43 @@ public class Transpiler {
         }
     }
 
+    /** The loop variables when a for-each can be a plain Python loop, else null. */
+    private List<String> forEachLoopNames(SExpr e) {
+        if (!inFunction || !e.isForm("for-each")) return null;
+        List<SExpr> args = list(e).subList(1, list(e).size());
+        if (args.size() < 2 || !args.get(0).isForm("lambda") || list(args.get(0)).size() <= 2
+                || !(list(args.get(0)).get(1) instanceof SExpr.Pair pl)) return null;
+        List<SExpr> ps = list(pl);
+        if (ps.size() != args.size() - 1 || pl.toList().size() != ps.size()) return null;
+        List<String> names = new ArrayList<>();
+        for (SExpr p : ps) {
+            if (!(p instanceof SExpr.Sym ps0)) return null;
+            String nm = snakeBind(ps0.name());
+            if (localVars.contains(nm) || globalVars.contains(nm)) return null;
+            names.add(nm);
+        }
+        return names;
+    }
+
     private void emitForEach(SExpr e, int ind) throws SchemeException {
         List<SExpr> args = list(e).subList(1, list(e).size());
+        // (for-each (lambda (x) body...) xs): a plain Python loop, so the body
+        // can hold defines, loops and set! of the function's own variables
+        List<String> names = forEachLoopNames(e);
+        if (names != null) {
+            {
+                for (SExpr a : args.subList(1, args.size())) hoistLambdas(a, ind);
+                indent(ind);
+                emit("for " + String.join(", ", names) + " in ");
+                if (args.size() == 2) emitExpr(args.get(1), ind);
+                else { emit("zip("); emitArgs(args.subList(1, args.size()), ind); emit(")"); }
+                emit(":\n");
+                localVars.addAll(names);
+                List<SExpr> body = list(args.get(0)).subList(2, list(args.get(0)).size());
+                for (SExpr b : body) { marker(b.line(), ind+1); emitStmt(b, ind+1); }
+                return;
+            }
+        }
         indent(ind);
         if (args.size() == 2) {
             emit("for _fi in "); emitExpr(args.get(1), ind); emit(":\n");
@@ -3626,6 +3704,13 @@ public class Transpiler {
         }
 
         String name = sym.name();
+        // (width img), (height pg), (pixels img): the size or pixels of an
+        // image or graphics, like img.width in Processing
+        if (args.size() == 1 && !localVars.contains(snake(name))
+                && (name.equals("width") || name.equals("height") || name.equals("pixels")
+                    || name.equals("pixel-width") || name.equals("pixel-height"))) {
+            emit("_obj_attr('" + DYNATTR.getOrDefault(name, "pixels") + "', "); emitExpr(args.get(0), ind); emit(")"); return;
+        }
         switch (name) {
             case "quote"      -> { emitQuote(args.isEmpty() ? new SExpr.Nil(pair.line()) : args.get(0)); return; }
             case "quasiquote" -> { emitQQ(args.get(0), ind); return; }
@@ -3741,6 +3826,7 @@ public class Transpiler {
     // values, into defs above it. A named let that IS the statement is emitted by emitLet.
     private void hoistLambdas(SExpr e, int ind) throws SchemeException {
         if (isNamedLetForm(e)) return;
+        if (forEachLoopNames(e) != null) return;  // emitForEach hoists what its lists need
         if (e.isForm("define") && list(e).size() > 2 && list(e).get(1) instanceof SExpr.Sym) {
             for (SExpr v : list(e).subList(2, list(e).size())) hoistInner(v, ind);
             return;
@@ -3757,6 +3843,23 @@ public class Transpiler {
         while (cur instanceof SExpr.Pair c) { hoistInner(c.car(), ind); cur = c.cdr(); }
     }
 
+
+    /** A do loop or a define somewhere in e (not inside a lambda): needs Python statements. */
+    private boolean hasStmtForm(SExpr e) {
+        if (!(e instanceof SExpr.Pair)) return false;
+        if (e.isForm("quote") || e.isForm("quasiquote") || e.isForm("lambda")) return false;
+        if (e.isForm("do") || e.isForm("define")) return true;
+        SExpr cur = e;
+        while (cur instanceof SExpr.Pair c) { if (hasStmtForm(c.car())) return true; cur = c.cdr(); }
+        return false;
+    }
+
+    private boolean hasArrowClause(SExpr e) {
+        if (!e.isForm("cond")) return false;
+        for (SExpr cl : list(e).subList(1, list(e).size()))
+            if (cl instanceof SExpr.Pair && list(cl).size() > 1 && list(cl).get(1).isSym("=>")) return true;
+        return false;
+    }
 
     private boolean hasNamedLet(SExpr e) {
         if (!(e instanceof SExpr.Pair)) return false;
@@ -3827,7 +3930,7 @@ public class Transpiler {
             else return; // not reachable from a def here; leave the lambda as it is
         }
         boolean loopInside = false;
-        for (SExpr b : body) if (hasNamedLet(b)) loopInside = true;
+        for (SExpr b : body) if (hasNamedLet(b) || hasStmtForm(b)) loopInside = true;
         // A named let needs statement context, so a lambda containing one becomes a def too.
         if (outerLocal.isEmpty() && outerGlobal.isEmpty() && !loopInside) return;
         String name = "_lam" + (++lamN);
@@ -4244,7 +4347,10 @@ public class Transpiler {
         switch (n) {
             case "car","first"   -> { sb.append("car("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "cdr","rest"    -> { sb.append("cdr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
-            case "cadr","second" -> { sb.append("cadr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
+            case "cadr","second" -> {
+                // (second) with nothing is Processing's clock, (second xs) the list item
+                if (args.isEmpty()) return "second()";
+                sb.append("cadr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "caddr","third" -> { sb.append("caddr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "cadddr","fourth" -> { sb.append("cadddr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
             case "cddr"   -> { sb.append("cddr("); apE(sb,args.get(0),ind); sb.append(")"); return sb.toString(); }
